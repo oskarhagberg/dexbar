@@ -1,0 +1,108 @@
+name: CI / Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ── Job 1: Run the test suite ──────────────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project DexBar.xcodeproj \
+            -scheme DexBar \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty --test
+        env:
+          NSUnbufferedIO: YES
+
+  # ── Job 2: Build, package and publish a release ────────────────────────────
+  release:
+    name: Build & Release
+    needs: test
+    runs-on: macos-15
+    permissions:
+      contents: write   # needed to create a GitHub release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # full history so commit count is accurate
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app
+
+      # Use the git commit count as the build number so it is always
+      # unique and increases monotonically with every push to main.
+      - name: Compute version info
+        id: version
+        run: |
+          BUILD=$(git rev-list --count HEAD)
+          MARKETING=$(agvtool what-marketing-version -terse1)
+          TAG="v${MARKETING}+${BUILD}"
+          echo "build=${BUILD}"     >> "$GITHUB_OUTPUT"
+          echo "marketing=${MARKETING}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"
+
+      - name: Stamp build number into project
+        run: agvtool new-version -all ${{ steps.version.outputs.build }}
+
+      # Build a Release archive. Signing is disabled so the app runs
+      # on any Mac after the user clears the quarantine flag (see release notes).
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project DexBar.xcodeproj \
+            -scheme DexBar \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/DexBar.xcarchive" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      # ditto preserves symlinks, resource forks and bundle structure —
+      # prefer it over plain zip for macOS app bundles.
+      - name: Package as zip
+        run: |
+          APP=$(find "$RUNNER_TEMP/DexBar.xcarchive/Products" -name "DexBar.app" | head -1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$RUNNER_TEMP/DexBar.zip"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES=$(cat <<'EOF'
+          ## Installation
+
+          1. Download **DexBar.zip** and unzip it.
+          2. Move **DexBar.app** to `~/Applications` (or `/Applications`).
+          3. Because this build is unsigned, macOS will quarantine it on first launch.
+             Remove the quarantine flag by running:
+             ```
+             xattr -d com.apple.quarantine ~/Applications/DexBar.app
+             ```
+             Or right-click the app in Finder and choose **Open**, then confirm.
+
+          > DexBar currently works only for users **outside the US and Asia-Pacific** regions.
+          EOF
+          )
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "DexBar ${{ steps.version.outputs.tag }}" \
+            --notes "$NOTES" \
+            "$RUNNER_TEMP/DexBar.zip#DexBar.zip"

@@ -5,6 +5,8 @@ A lightweight macOS menu bar app that displays your Dexcom CGM glucose readings 
 ![macOS](https://img.shields.io/badge/macOS-menu%20bar%20app-blue)
 ![Swift](https://img.shields.io/badge/Swift-SwiftUI%20%2B%20AppKit-orange)
 
+![DexBar popover showing a glucose chart with a 6-hour window](Screenshots/preview.png)
+
 ## Features
 
 - Live glucose reading and trend arrow in the menu bar, updated every 60 seconds
