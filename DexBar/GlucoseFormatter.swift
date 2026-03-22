@@ -28,9 +28,10 @@ enum GlucoseFormatter {
 
     static func statusLabel(valueMmol: Double, trend: String) -> String {
         let arrow = arrow(for: trend)
+        let formatted = String(format: "%.1f", valueMmol)
         if isLow(valueMmol) {
-            return "⚠️ \(valueMmol) \(arrow)"
+            return "⚠️ \(formatted) \(arrow)"
         }
-        return "\(valueMmol) \(arrow)"
+        return "\(formatted) \(arrow)"
     }
 }

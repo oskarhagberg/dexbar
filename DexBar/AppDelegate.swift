@@ -406,7 +406,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
 
                     // Threshold rules
-                    RuleMark(y: .value("Threshold", 4))
+                    RuleMark(y: .value("Threshold", GlucoseFormatter.lowThreshold))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
                         .foregroundStyle(.red)
 
