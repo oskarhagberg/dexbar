@@ -11,16 +11,6 @@ import Charts
 import Security
 import ServiceManagement
 
-// MARK: - Debug Logging
-
-func dlog(_ items: Any..., separator: String = " ", file: String = #file, line: Int = #line) {
-    #if DEBUG
-    let message = items.map { "\($0)" }.joined(separator: separator)
-    let filename = (file as NSString).lastPathComponent
-    print("[\(filename):\(line)] \(message)")
-    #endif
-}
-
 // MARK: - Keychain
 
 struct KeychainHelper {
@@ -111,8 +101,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var preferencesWindow: NSWindow?
     var isAuthenticated = false
 
-    private let baseURL = "https://shareous1.dexcom.com/ShareWebServices/Services/"
-    private let applicationId = "d89443d2-327c-4a6f-89e5-496bbb0317db"
+    private let dexcom = DexcomClient()
     private var username: String { KeychainHelper.load(for: "username") ?? "" }
     private var password: String { KeychainHelper.load(for: "password") ?? "" }
     private var sessionId: String?
@@ -210,73 +199,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         fetchData()
     }
 
-    func postJSON(endpoint: String, body: [String: String], completion: @escaping (String?) -> Void) {
-        guard let url = URL(string: "\(baseURL)\(endpoint)") else { completion(nil); return }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else { completion(nil); return }
-        request.httpBody = httpBody
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                dlog("[\(endpoint)] Request failed:", error)
-                completion(nil)
-                return
-            }
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let raw = data.flatMap { String(data: $0, encoding: .utf8) } ?? "<no body>"
-            dlog("[\(endpoint)] HTTP \(status), body: \(raw)")
-            guard let data = data, let value = try? JSONDecoder().decode(String.self, from: data) else {
-                completion(nil)
-                return
-            }
-            completion(value)
-        }.resume()
-    }
-
-    func authenticate(username: String? = nil, password: String? = nil, completion: @escaping (String?) -> Void) {
-        let user = username ?? self.username
-        let pass = password ?? self.password
-        // Step 1: accountName + password → account ID
-        postJSON(
-            endpoint: "General/AuthenticatePublisherAccount",
-            body: ["accountName": user, "password": pass, "applicationId": applicationId]
-        ) { [weak self] accountId in
-            guard let self, let accountId else {
-                dlog("[Auth] Failed to get account ID")
-                completion(nil)
-                return
-            }
-            dlog("[Auth] Got account ID: \(accountId)")
-            // Step 2: account ID + password → session ID
-            self.postJSON(
-                endpoint: "General/LoginPublisherAccountById",
-                body: ["accountId": accountId, "password": pass, "applicationId": self.applicationId]
-            ) { sessionId in
-                if let sessionId {
-                    dlog("[Auth] Got session ID: \(sessionId)")
-                } else {
-                    dlog("[Auth] Failed to get session ID")
-                }
-                completion(sessionId)
-            }
-        }
-    }
-
     /// Called from Preferences: saves credentials then verifies them end-to-end.
     func signIn(username: String, password: String, completion: @escaping (Bool, String?) -> Void) {
         KeychainHelper.save(username, for: "username")
         KeychainHelper.save(password, for: "password")
         sessionId = nil
-        authenticate(username: username, password: password) { [weak self] sid in
+        dexcom.authenticate(username: username, password: password) { [weak self] sid in
             guard let self, let sid else {
                 self?.markUnauthenticated()
                 completion(false, "Could not sign in. Check your username and password.")
                 return
             }
             self.sessionId = sid
-            self.fetchReadings(sessionId: sid) { readings in
+            self.dexcom.fetchReadings(sessionId: sid) { readings in
                 if let readings, !readings.isEmpty {
                     self.updateUI(with: readings)
                     DispatchQueue.main.async {
@@ -291,49 +226,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func fetchReadings(sessionId: String, completion: @escaping ([DexcomReading]?) -> Void) {
-        var components = URLComponents(string: "\(baseURL)Publisher/ReadPublisherLatestGlucoseValues")!
-        components.queryItems = [
-            URLQueryItem(name: "sessionId", value: sessionId),
-            URLQueryItem(name: "minutes", value: "1440"),
-            URLQueryItem(name: "maxCount", value: "288")
-        ]
-        guard let url = components.url else {
-            completion(nil)
-            return
-        }
-
-        dlog("[Readings] Fetching:", url)
-        var request = URLRequest(url: url)
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                dlog("[Readings] Request failed:", error)
-                completion(nil)
-                return
-            }
-            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let raw = data.flatMap { String(data: $0, encoding: .utf8) } ?? "<no body>"
-            dlog("[Readings] HTTP \(status), body: \(raw)")
-            guard let data = data else {
-                completion(nil)
-                return
-            }
-            do {
-                let readings = try JSONDecoder().decode([DexcomReading].self, from: data)
-                dlog("[Readings] Decoded \(readings.count) readings")
-                completion(readings)
-            } catch {
-                dlog("[Readings] Decode error:", error)
-                completion(nil)
-            }
-        }.resume()
-    }
-
     func fetchData() {
         let doFetch = { [weak self] (sid: String) in
-            self?.fetchReadings(sessionId: sid) { readings in
+            self?.dexcom.fetchReadings(sessionId: sid) { readings in
                 guard let readings = readings else {
                     // Decode failure likely means expired session — clear for next poll
                     self?.sessionId = nil
@@ -348,7 +243,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let sid = sessionId {
             doFetch(sid)
         } else {
-            authenticate { [weak self] sid in
+            dexcom.authenticate(username: username, password: password) { [weak self] sid in
                 guard let sid = sid else {
                     dlog("Authentication failed")
                     self?.markUnauthenticated()
