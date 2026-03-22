@@ -117,18 +117,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var password: String { KeychainHelper.load(for: "password") ?? "" }
     private var sessionId: String?
 
-    private let trendArrows: [String: String] = [
-        "None":           "",
-        "DoubleUp":       "↑↑",
-        "SingleUp":       "↑",
-        "FortyFiveUp":    "↗",
-        "Flat":           "→",
-        "FortyFiveDown":  "↘",
-        "SingleDown":     "↓",
-        "DoubleDown":     "↓↓",
-        "NotComputable":  "?",
-        "RateOutOfRange": "-"
-    ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -389,19 +377,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func updateUI(with readings: [DexcomReading]) {
-        // Dexcom returns readings newest-first; reverse for chart display
         guard let latest = readings.first else { return }
-
-        let value = latest.valueMmol
-        let arrowSymbol = trendArrows[latest.trend] ?? "?"
 
         isAuthenticated = true
         graphData = readings.reversed().map { GraphDatum(value: $0.valueMmol, timestamp: $0.timestamp) }
 
-        if value < 4.0 {
-            setStatusTitle("⚠️ \(value) \(arrowSymbol)", color: .red)
+        let label = GlucoseFormatter.statusLabel(valueMmol: latest.valueMmol, trend: latest.trend)
+        if GlucoseFormatter.isLow(latest.valueMmol) {
+            setStatusTitle(label, color: .red)
         } else {
-            setStatusTitle("\(value) \(arrowSymbol)")
+            setStatusTitle(label)
         }
         updatePopoverContent()
     }
