@@ -24,10 +24,22 @@ A lightweight macOS menu bar app that displays your Dexcom CGM glucose readings 
 
 ## Getting Started
 
+### Download a release (recommended)
+
+1. Go to the [**Releases**](../../releases) page and download the latest `DexBar.zip`.
+2. Unzip it and move **DexBar.app** to `~/Applications` (or `/Applications`).
+3. Because the build is unsigned, macOS will quarantine it on first launch. Remove the flag by running:
+   ```sh
+   xattr -d com.apple.quarantine ~/Applications/DexBar.app
+   ```
+   Or right-click the app in Finder, choose **Open**, then confirm in the dialog.
+4. Click the DexBar icon in the menu bar, then open **Preferences** and sign in with your Dexcom account credentials.
+
+### Build from source
+
 1. Clone the repository and open `DexBar.xcodeproj` in Xcode.
-2. Build and run the app.
-3. Right-click the status bar icon and choose **Preferences**.
-4. Sign in with your Dexcom account credentials (or the account owner's credentials if you are a follower).
+2. Build and run the app (`⌘R`).
+3. Click the DexBar icon in the menu bar, then open **Preferences** and sign in with your Dexcom account credentials.
 
 ## Authentication
 
