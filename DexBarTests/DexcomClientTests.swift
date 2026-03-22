@@ -5,8 +5,14 @@ import Foundation
 @Suite("DexcomClient", .serialized)
 struct DexcomClientTests {
 
-    private let session = MockURLProtocol.makeSession()
-    private var client: DexcomClient { DexcomClient(session: session) }
+    private let session: URLSession
+    private let client: DexcomClient
+
+    init() {
+        let s = MockURLProtocol.makeSession()
+        session = s
+        client = DexcomClient(session: s)
+    }
 
     // MARK: postJSON
 
@@ -41,13 +47,38 @@ struct DexcomClientTests {
             return MockURLProtocol.respond(with: "id", url: req.url!)
         }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            client.postJSON(endpoint: "General/AuthenticatePublisherAccount", body: [:]) { _ in
+            client.postJSON(endpoint: "General/AuthenticatePublisherAccount",
+                            body: ["accountName": "user", "password": "pass", "applicationId": "id"]) { _ in
                 cont.resume()
             }
         }
         #expect(capturedRequest?.httpMethod == "POST")
         #expect(capturedRequest?.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(capturedRequest?.value(forHTTPHeaderField: "Accept") == "application/json")
+        // URLSession moves httpBody to httpBodyStream before handing the request to URLProtocol;
+        // read from whichever source is available.
+        let bodyData: Data? = capturedRequest?.httpBody ?? {
+            guard let stream = capturedRequest?.httpBodyStream else { return nil }
+            stream.open()
+            defer { stream.close() }
+            var data = Data()
+            let bufferSize = 1024
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+            defer { buffer.deallocate() }
+            while stream.hasBytesAvailable {
+                let read = stream.read(buffer, maxLength: bufferSize)
+                if read > 0 { data.append(buffer, count: read) }
+            }
+            return data
+        }()
+        if let body = bodyData,
+           let json = try? JSONSerialization.jsonObject(with: body) as? [String: String] {
+            #expect(json["accountName"] == "user")
+            #expect(json["password"] == "pass")
+            #expect(json["applicationId"] == "id")
+        } else {
+            Issue.record("Request body was nil or not valid JSON")
+        }
     }
 
     // MARK: fetchReadings

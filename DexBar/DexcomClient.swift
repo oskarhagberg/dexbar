@@ -39,7 +39,10 @@ struct DexcomClient {
     }
 
     func fetchReadings(sessionId: String, completion: @escaping ([DexcomReading]?) -> Void) {
-        var components = URLComponents(string: "\(baseURL)Publisher/ReadPublisherLatestGlucoseValues")!
+        guard var components = URLComponents(string: "\(baseURL)Publisher/ReadPublisherLatestGlucoseValues") else {
+            completion(nil)
+            return
+        }
         components.queryItems = [
             URLQueryItem(name: "sessionId", value: sessionId),
             URLQueryItem(name: "minutes",   value: "1440"),

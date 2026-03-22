@@ -4,8 +4,12 @@ import Foundation
 /// a pre-configured response without making real network calls.
 final class MockURLProtocol: URLProtocol {
 
-    /// Set this before each test: `(Data?, HTTPURLResponse?, Error?)`
-    static var handler: ((URLRequest) throws -> (Data, HTTPURLResponse))?
+    private static let lock = NSLock()
+    private static var _handler: ((URLRequest) throws -> (Data, HTTPURLResponse))?
+    static var handler: ((URLRequest) throws -> (Data, HTTPURLResponse))? {
+        get { lock.withLock { _handler } }
+        set { lock.withLock { _handler = newValue } }
+    }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
