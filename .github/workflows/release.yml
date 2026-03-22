@@ -53,8 +53,8 @@ jobs:
         id: version
         run: |
           BUILD=$(git rev-list --count HEAD)
-          MARKETING=$(agvtool what-marketing-version -terse1)
-          TAG="v${MARKETING}+${BUILD}"
+          MARKETING=$(grep -m1 'MARKETING_VERSION' DexBar.xcodeproj/project.pbxproj | tr -d ' ;' | cut -d= -f2)
+          TAG="v${MARKETING}-${BUILD}"
           echo "build=${BUILD}"     >> "$GITHUB_OUTPUT"
           echo "marketing=${MARKETING}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"

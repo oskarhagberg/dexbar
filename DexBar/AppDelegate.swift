@@ -639,6 +639,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+
+                Divider()
+
+                HStack {
+                    Spacer()
+                    Text("DexBar \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(24)
             .frame(width: 360)
