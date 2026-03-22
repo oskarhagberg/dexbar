@@ -413,6 +413,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     RuleMark(y: .value("Threshold", 12))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
                         .foregroundStyle(.red)
+
+                    // Vertical cursor line — follows the drag position
+                    if let sel = selectedX {
+                        RuleMark(x: .value("Cursor", sel))
+                            .lineStyle(StrokeStyle(lineWidth: 1))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
                 }
                 .chartXAxisLabel("Time")
                 .chartYAxisLabel("Glucose (mmol/L)")
