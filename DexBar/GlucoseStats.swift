@@ -27,7 +27,7 @@ func glucoseStats(from readings: [GraphDatum], hours: Double = 24) -> GlucoseSta
 
     return GlucoseStats(
         timeInRange: tir,
-        timeInRangePercent: Int(tir * 100),
+        timeInRangePercent: Int((tir * 100).rounded()),
         average: avg,
         periodLow: low,
         readingCount: window.count
