@@ -5,6 +5,10 @@ enum GlucoseFormatter {
 
     static let lowThreshold = 4.0
 
+    // TIR thresholds — used by GlucoseStats and must match the web chart
+    static let tirLow  = 4.5   // mmol/L
+    static let tirHigh = 10.0  // mmol/L
+
     private static let trendArrows: [String: String] = [
         "None":           "",
         "DoubleUp":       "↑↑",
@@ -18,8 +22,27 @@ enum GlucoseFormatter {
         "RateOutOfRange": "-"
     ]
 
+    private static let trendNormalised: [String: String] = [
+        "DoubleUp":       "risingRapidly",
+        "SingleUp":       "rising",
+        "FortyFiveUp":    "risingSlightly",
+        "Flat":           "flat",
+        "FortyFiveDown":  "fallingSlightly",
+        "SingleDown":     "falling",
+        "DoubleDown":     "fallingRapidly",
+        "None":           "unknown",
+        "NotComputable":  "unknown",
+        "RateOutOfRange": "unknown"
+    ]
+
     static func arrow(for trend: String) -> String {
         trendArrows[trend] ?? "?"
+    }
+
+    /// Maps Dexcom trend strings (e.g. "SingleUp") to simple display strings
+    /// for the web chart (e.g. "rising").
+    static func normalisedTrend(_ raw: String) -> String {
+        trendNormalised[raw] ?? "unknown"
     }
 
     static func isLow(_ value: Double) -> Bool {
