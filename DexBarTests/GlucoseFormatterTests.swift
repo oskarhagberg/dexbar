@@ -53,4 +53,27 @@ struct GlucoseFormatterTests {
         let label = GlucoseFormatter.statusLabel(valueMmol: 7.2, trend: "SomeUnknownTrend")
         #expect(label == "7.2 ?")
     }
+
+    @Test func knownTrendsMappedToNormalisedStrings() {
+        let cases: [(String, String)] = [
+            ("DoubleUp",       "risingRapidly"),
+            ("SingleUp",       "rising"),
+            ("FortyFiveUp",    "risingSlightly"),
+            ("Flat",           "flat"),
+            ("FortyFiveDown",  "fallingSlightly"),
+            ("SingleDown",     "falling"),
+            ("DoubleDown",     "fallingRapidly"),
+            ("None",           "unknown"),
+            ("NotComputable",  "unknown"),
+            ("RateOutOfRange", "unknown"),
+        ]
+        for (trend, expected) in cases {
+            #expect(GlucoseFormatter.normalisedTrend(trend) == expected,
+                    "Trend '\(trend)' should normalise to '\(expected)'")
+        }
+    }
+
+    @Test func unknownTrendNormalisesToUnknown() {
+        #expect(GlucoseFormatter.normalisedTrend("SomeNewTrend") == "unknown")
+    }
 }
