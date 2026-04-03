@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'Screenshots/**'
+  workflow_dispatch:
 
 jobs:
   # ── Job 1: Run the test suite ──────────────────────────────────────────────
