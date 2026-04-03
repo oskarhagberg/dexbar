@@ -1,57 +1,57 @@
 :root {
   /* ── Semantic status ─────────────────────────────────────────────────────── */
-  --color-in-range:        #34d399;
-  --color-high:            #fb923c;
-  --color-low:             #f87171;
-  --color-trend-danger:    #ef4444;  /* DoubleUp / DoubleDown */
-  --color-trend-warn:      #fbbf24;  /* FortyFiveUp / FortyFiveDown */
-  --color-trend-falling:   #818cf8;  /* SingleDown */
+  --color-in-range:        #34d399;  /* In-range value text, live dot, chart line/area */
+  --color-high:            #fb923c;  /* High value text, SingleUp arrow, high threshold line */
+  --color-low:             #f87171;  /* Low value text, low threshold line, period low warning */
+  --color-trend-danger:    #ef4444;  /* DoubleUp / DoubleDown trend arrow */
+  --color-trend-warn:      #fbbf24;  /* FortyFiveUp / FortyFiveDown arrow; TIR 50–69% */
+  --color-trend-falling:   #818cf8;  /* SingleDown arrow; chart gradient left edge */
 
   /* ── Status badge (fill + border) ───────────────────────────────────────── */
-  --color-in-range-bg:     rgba(52,  211, 153, 0.10);
-  --color-in-range-border: rgba(52,  211, 153, 0.25);
-  --color-high-bg:         rgba(251, 146, 60,  0.10);
-  --color-high-border:     rgba(251, 146, 60,  0.25);
-  --color-low-bg:          rgba(248, 113, 113, 0.10);
-  --color-low-border:      rgba(248, 113, 113, 0.25);
+  --color-in-range-bg:     rgba(52,  211, 153, 0.10);  /* "IN RANGE" badge background */
+  --color-in-range-border: rgba(52,  211, 153, 0.25);  /* "IN RANGE" badge border */
+  --color-high-bg:         rgba(251, 146, 60,  0.10);  /* "HIGH" badge background */
+  --color-high-border:     rgba(251, 146, 60,  0.25);  /* "HIGH" badge border */
+  --color-low-bg:          rgba(248, 113, 113, 0.10);  /* "LOW" badge background */
+  --color-low-border:      rgba(248, 113, 113, 0.25);  /* "LOW" badge border */
 
   /* ── App background & surfaces ───────────────────────────────────────────── */
-  --color-bg:              #09090f;
-  --color-surface:         rgba(255, 255, 255, 0.022);
-  --color-surface-raised:  rgba(255, 255, 255, 0.03);
-  --color-surface-subtle:  rgba(255, 255, 255, 0.05);
-  --color-surface-active:  rgba(255, 255, 255, 0.10);
+  --color-bg:              #09090f;                    /* App background, empty state */
+  --color-surface:         rgba(255, 255, 255, 0.022); /* Chart card background */
+  --color-surface-raised:  rgba(255, 255, 255, 0.03);  /* Stat pill background */
+  --color-surface-subtle:  rgba(255, 255, 255, 0.05);  /* Range selector background */
+  --color-surface-active:  rgba(255, 255, 255, 0.10);  /* Active range button (3h/6h/12h/24h) */
 
   /* ── Borders ─────────────────────────────────────────────────────────────── */
-  --color-border:          rgba(255, 255, 255, 0.07);
-  --color-border-strong:   rgba(255, 255, 255, 0.10);
+  --color-border:          rgba(255, 255, 255, 0.07);  /* Chart card border, stat pill border */
+  --color-border-strong:   rgba(255, 255, 255, 0.10);  /* Hover crosshair line, tooltip border */
 
   /* ── Text hierarchy ──────────────────────────────────────────────────────── */
-  --color-text-primary:    rgba(255, 255, 255, 0.90);
-  --color-text-secondary:  rgba(255, 255, 255, 0.30);
-  --color-text-dim:        rgba(255, 255, 255, 0.28);
-  --color-text-axis:       rgba(255, 255, 255, 0.25);
-  --color-text-legend:     rgba(255, 255, 255, 0.22);
-  --color-text-faint:      rgba(255, 255, 255, 0.15);
-  --color-text-ghost:      rgba(255, 255, 255, 0.10);
-  --color-text-empty:      rgba(255, 255, 255, 0.20);
+  --color-text-primary:    rgba(255, 255, 255, 0.90);  /* Stat values (TIR %, average, period low) */
+  --color-text-secondary:  rgba(255, 255, 255, 0.30);  /* Stat pill labels, "mmol/L" unit, tooltip */
+  --color-text-dim:        rgba(255, 255, 255, 0.28);  /* "Dexcom G7" label, inactive range buttons */
+  --color-text-axis:       rgba(255, 255, 255, 0.25);  /* Chart Y-axis numbers, X-axis time labels */
+  --color-text-legend:     rgba(255, 255, 255, 0.22);  /* "Glucose History" heading, legend labels */
+  --color-text-faint:      rgba(255, 255, 255, 0.15);  /* Live clock timestamp (top right) */
+  --color-text-ghost:      rgba(255, 255, 255, 0.10);  /* Footer "Omnipod 5 · Auto Mode…" line */
+  --color-text-empty:      rgba(255, 255, 255, 0.20);  /* "Waiting for data" / "No data for range" */
 
   /* ── Chart ───────────────────────────────────────────────────────────────── */
-  --color-grid:            rgba(255, 255, 255, 0.06);
-  --color-range-band:      rgba(52,  211, 153, 0.05);
-  --color-legend-fill:     rgba(52,  211, 153, 0.14);
-  --color-legend-border:   rgba(52,  211, 153, 0.22);
-  --color-glow-green:      rgba(52,  211, 153, 0.07);
-  --color-glow-purple:     rgba(129, 140, 248, 0.06);
+  --color-grid:            rgba(255, 255, 255, 0.06);  /* Horizontal + vertical grid lines */
+  --color-range-band:      rgba(52,  211, 153, 0.05);  /* Shaded target-range band between thresholds */
+  --color-legend-fill:     rgba(52,  211, 153, 0.14);  /* Target range legend swatch fill */
+  --color-legend-border:   rgba(52,  211, 153, 0.22);  /* Target range legend swatch border */
+  --color-glow-green:      rgba(52,  211, 153, 0.07);  /* Green ambient radial glow (centre) */
+  --color-glow-purple:     rgba(129, 140, 248, 0.06);  /* Purple ambient radial glow (top-left) */
 
   /* ── Hover tooltip ───────────────────────────────────────────────────────── */
-  --color-tooltip-bg:      rgba(10,  10,  20,  0.95);
-  --color-tooltip-time:    rgba(255, 255, 255, 0.35);
+  --color-tooltip-bg:      rgba(10,  10,  20,  0.95);  /* Tooltip card background */
+  --color-tooltip-time:    rgba(255, 255, 255, 0.35);  /* Tooltip time text (below the value) */
 
   /* ── Card shadow ─────────────────────────────────────────────────────────── */
-  --shadow-card: 0 0 0 1px rgba(255,255,255,0.03), 0 28px 64px rgba(0,0,0,0.55);
+  --shadow-card: 0 0 0 1px rgba(255,255,255,0.03), 0 28px 64px rgba(0,0,0,0.55); /* Chart card drop shadow */
 
   /* ── Typography ──────────────────────────────────────────────────────────── */
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  --font-mono:    'SF Mono', ui-monospace, Menlo, monospace;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; /* UI text, labels, buttons */
+  --font-mono:    'SF Mono', ui-monospace, Menlo, monospace;                       /* Glucose values, chart axes */
 }
