@@ -159,40 +159,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.target = self
-        statusItem.button?.action = #selector(handleStatusItemClick(_:))
-        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        DisclaimerWindowController.showIfNeeded { [weak self] in
+            guard let self else { return }
 
-        let vc = GlucoseWebViewController()
-        glucoseWebVC = vc
+            statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem.button?.target = self
+            statusItem.button?.action = #selector(handleStatusItemClick(_:))
+            statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-        let p = NSPopover()
-        p.behavior = .transient
-        p.contentViewController = vc
-        p.contentSize = CGSize(width: 640, height: 600)
-        p.appearance = NSAppearance(named: .darkAqua)
-        popover = p
+            let vc = GlucoseWebViewController()
+            glucoseWebVC = vc
 
-        // Load credentials once at startup — single Keychain prompt.
-        if let creds = KeychainHelper.loadCredentials() {
-            username = creds.username
-            password = creds.password
-        }
+            let p = NSPopover()
+            p.behavior = .transient
+            p.contentViewController = vc
+            p.contentSize = CGSize(width: 640, height: 600)
+            p.appearance = NSAppearance(named: .darkAqua)
+            popover = p
 
-        if !username.isEmpty {
-            setStatusTitle("…")
-            startPolling()
-        } else {
-            setStatusTitle("🚫")
-        }
+            // Load credentials once at startup — single Keychain prompt.
+            if let creds = KeychainHelper.loadCredentials() {
+                username = creds.username
+                password = creds.password
+            }
 
-        // Load Glooko credentials and authenticate in background if present
-        if let glookoCreds = KeychainHelper.loadGlookoCredentials() {
-            glooko.authenticate(email: glookoCreds.email, password: glookoCreds.password) { [weak self] ok, _ in
-                guard let self, ok else { return }
-                self.fetchGlookoData()
-                DispatchQueue.main.async { self.startGlookoPolling() }
+            if !username.isEmpty {
+                setStatusTitle("…")
+                startPolling()
+            } else {
+                setStatusTitle("🚫")
+            }
+
+            // Load Glooko credentials and authenticate in background if present
+            if let glookoCreds = KeychainHelper.loadGlookoCredentials() {
+                glooko.authenticate(email: glookoCreds.email, password: glookoCreds.password) { [weak self] ok, _ in
+                    guard let self, ok else { return }
+                    self.fetchGlookoData()
+                    DispatchQueue.main.async { self.startGlookoPolling() }
+                }
             }
         }
     }
