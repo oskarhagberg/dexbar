@@ -247,6 +247,7 @@
 			);
 			inputPaths = (
 				"$(SRCROOT)/WebChart/src/App.tsx",
+				"$(SRCROOT)/WebChart/src/app.css",
 				"$(SRCROOT)/WebChart/src/index.css",
 				"$(SRCROOT)/WebChart/package.json",
 			);
