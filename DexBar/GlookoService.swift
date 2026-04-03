@@ -15,19 +15,6 @@ struct PumpEvent: Codable {
 
 class GlookoService {
 
-    private let baseURL = "https://eu.api.glooko.com"
-    private let session: URLSession
-
-    private var sessionCookie: String?
-    private var glookoCode: String?
-    // Kept only for 401 retry — never persisted to disk or Keychain
-    private var cachedEmail: String?
-    private var cachedPassword: String?
-
-    init(session: URLSession = .shared) {
-        self.session = session
-    }
-
     // MARK: - Private raw response types
 
     private struct HistoriesResponse: Decodable {
