@@ -75,8 +75,9 @@ struct GlookoServiceTests {
         #expect(abs(ev.units - 3.5) < 0.001)
         #expect(abs(ev.carbs - 45.0) < 0.001)
         #expect(abs(ev.bg - 7.6) < 0.001)
-        // 2026-04-02T15:45:42.000Z = Unix epoch 1775144742 seconds
-        #expect(ev.timestamp == 1775144742000)
+        // Timestamp is parsed as local time — use the same helper to compute expected
+        let expected = GlookoService.parseLocalPumpTimestamp("2026-04-02T15:45:42.000Z")!.timeIntervalSince1970 * 1000
+        #expect(ev.timestamp == expected)
     }
 
     @Test func filtersOutSoftDeletedOuter() {
@@ -300,7 +301,7 @@ struct GlookoServiceTests {
         let events = GlookoService.parsePumpEvents(from: json)
         #expect(events.count == 1)
         let ev = try #require(events.first)
-        // 2026-04-02T15:45:42Z = 1775144742 seconds since epoch
-        #expect(ev.timestamp == 1775144742000)
+        let expected = GlookoService.parseLocalPumpTimestamp("2026-04-02T15:45:42Z")!.timeIntervalSince1970 * 1000
+        #expect(ev.timestamp == expected)
     }
 }

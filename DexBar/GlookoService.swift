@@ -173,9 +173,21 @@ class GlookoService {
         return f
     }()
 
-    private static let iso8601NoFraction: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
+    /// Parses pump timestamps as local device time.
+    /// Glooko stores the pump's local clock in pumpTimestamp but incorrectly labels it
+    /// with a Z/+00:00 designator. Strip the timezone suffix and parse as local time,
+    /// matching how the official Glooko app displays these events.
+    private static let pumpLocalFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static let pumpLocalFormatterNoMs: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
 
@@ -205,6 +217,15 @@ class GlookoService {
         return nil
     }
 
+    /// Parses a Glooko pumpTimestamp as local device time.
+    /// Strips any trailing timezone designator (Z or +HH:MM) before parsing,
+    /// so "2026-04-03T11:58:10.000Z" → 11:58:10 in the device's local timezone.
+    static func parseLocalPumpTimestamp(_ raw: String) -> Date? {
+        // Everything before the timezone designator (Z or +/-)
+        let stripped = raw.components(separatedBy: CharacterSet(charactersIn: "Z+")).first ?? raw
+        return pumpLocalFormatter.date(from: stripped) ?? pumpLocalFormatterNoMs.date(from: stripped)
+    }
+
     /// Parses raw histories JSON data into a PumpEvent array.
     ///
     /// Filter rules applied:
@@ -228,7 +249,7 @@ class GlookoService {
                   let item = entry.item,
                   item.softDeleted != true,   // nil (field absent from JSON) is treated as not deleted
                   let tsString = item.pumpTimestamp,
-                  let date = iso8601.date(from: tsString) ?? iso8601NoFraction.date(from: tsString),
+                  let date = GlookoService.parseLocalPumpTimestamp(tsString),
                   let units = item.insulinDelivered else { continue }
             let carbs = item.carbsInput ?? 0.0
             guard units > 0 || carbs > 0 else { continue }
