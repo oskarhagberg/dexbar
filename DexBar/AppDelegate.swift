@@ -285,9 +285,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func markUnauthenticated() {
-        isAuthenticated = false
-        setStatusTitle("🚫")
-        glucoseWebVC?.isAuthenticated = false
+        DispatchQueue.main.async {
+            self.isAuthenticated = false
+            self.setStatusTitle("🚫")
+            self.glucoseWebVC?.isAuthenticated = false
+        }
     }
 
     func signOut() {
@@ -302,17 +304,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func updateUI(with readings: [DexcomReading]) {
         guard let latest = readings.first else { return }
+        DispatchQueue.main.async {
+            self.isAuthenticated = true
+            self.latestReading = latest
+            self.graphData = readings.reversed().map { GraphDatum(value: $0.valueMmol, timestamp: $0.timestamp) }
 
-        isAuthenticated = true
-        latestReading = latest
-        graphData = readings.reversed().map { GraphDatum(value: $0.valueMmol, timestamp: $0.timestamp) }
+            self.glucoseWebVC?.isAuthenticated = true
+            self.glucoseWebVC?.injectHistory(self.graphData)
+            self.glucoseWebVC?.pushReading(latest)
 
-        glucoseWebVC?.isAuthenticated = true
-        glucoseWebVC?.injectHistory(graphData)
-        glucoseWebVC?.pushReading(latest)
-
-        currentStats = glucoseStats(from: graphData)
-        updateStatusBarTitle()
+            self.currentStats = glucoseStats(from: self.graphData)
+            self.updateStatusBarTitle()
+        }
     }
 
     @objc func togglePopover(_ sender: Any?) {
