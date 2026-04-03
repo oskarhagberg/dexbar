@@ -202,10 +202,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 },
                 onSignOut: { [weak self] in
                     self?.signOut()
+                },
+                onSaveThresholds: { [weak self] thresholds in
+                    guard let self else { return }
+                    GlucoseThresholdsStore.current = thresholds
+                    // Recompute stats and push update to the web chart
+                    self.currentStats = glucoseStats(from: self.graphData, thresholds: thresholds)
+                    self.updateStatusBarTitle()
+                    if let latest = self.latestReading {
+                        self.glucoseWebVC?.pushReading(latest)
+                    }
                 }
             )
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 360, height: 260),
+                contentRect: NSRect(x: 0, y: 0, width: 360, height: 360),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
@@ -334,9 +344,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private struct PreferencesView: View {
         let onSignIn: (String, String, @escaping (Bool, String?) -> Void) -> Void
         let onSignOut: () -> Void
+        let onSaveThresholds: (GlucoseThresholds) -> Void
 
         @State private var username: String = KeychainHelper.load(for: "username") ?? ""
         @State private var password: String = KeychainHelper.load(for: "password") ?? ""
+        @State private var lowText: String = String(GlucoseThresholdsStore.current.low)
+        @State private var highText: String = String(GlucoseThresholdsStore.current.high)
+        @State private var thresholdError: String? = nil
 
         enum SignInStatus { case idle, loading, success, failure(String) }
         @State private var status: SignInStatus = .idle
@@ -396,6 +410,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
                 Divider()
 
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Target Range (mmol/L)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        TextField("Low", text: $lowText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                        Text("Low")
+                            .foregroundStyle(.secondary)
+                        TextField("High", text: $highText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 60)
+                        Text("High")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Save") { saveThresholds() }
+                    }
+
+                    if let error = thresholdError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                }
+
+                Divider()
+
                 HStack {
                     Spacer()
                     Text("DexBar \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
@@ -405,6 +448,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .padding(24)
             .frame(width: 360)
+        }
+
+        private func saveThresholds() {
+            guard let low = Double(lowText), let high = Double(highText) else {
+                thresholdError = "Enter valid numbers for low and high."
+                return
+            }
+            guard low >= 2.0, low <= 6.0 else {
+                thresholdError = "Low must be between 2.0 and 6.0 mmol/L."
+                return
+            }
+            guard high >= 8.0, high <= 15.0 else {
+                thresholdError = "High must be between 8.0 and 15.0 mmol/L."
+                return
+            }
+            guard low < high else {
+                thresholdError = "Low must be less than high."
+                return
+            }
+            thresholdError = nil
+            onSaveThresholds(GlucoseThresholds(low: low, high: high))
         }
 
         private func performSignIn() {
