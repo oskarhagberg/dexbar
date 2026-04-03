@@ -204,7 +204,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             // Load Glooko credentials and authenticate in background if present
             if let glookoCreds = KeychainHelper.loadGlookoCredentials() {
-                glooko.authenticate(email: glookoCreds.email, password: glookoCreds.password) { [weak self] ok, _ in
+                glooko.onNewSessionCookie = { KeychainHelper.saveGlookoSessionCookie($0) }
+                let cachedCookie = KeychainHelper.loadGlookoSessionCookie()
+                glooko.authenticate(
+                    email: glookoCreds.email,
+                    password: glookoCreds.password,
+                    cachedCookie: cachedCookie
+                ) { [weak self] ok, _ in
                     guard let self, ok else { return }
                     self.fetchGlookoData()
                     DispatchQueue.main.async { self.startGlookoPolling() }
