@@ -46,8 +46,8 @@ struct GlucoseStatsTests {
     }
 
     @Test func exactlyAtTirBoundariesIsInRange() {
-        let atLow  = datum(GlucoseFormatter.tirLow)   // 4.5 — in range
-        let atHigh = datum(GlucoseFormatter.tirHigh)  // 10.0 — in range
+        let atLow  = datum(GlucoseThresholds.default.low)
+        let atHigh = datum(GlucoseThresholds.default.high)
         let stats = glucoseStats(from: [atLow, atHigh])
         #expect(stats?.timeInRangePercent == 100)
     }

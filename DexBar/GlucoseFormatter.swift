@@ -5,10 +5,6 @@ enum GlucoseFormatter {
 
     static let lowThreshold = 4.0
 
-    // TIR thresholds — used by GlucoseStats and must match the web chart
-    static let tirLow  = 4.5   // mmol/L
-    static let tirHigh = 10.0  // mmol/L
-
     private static let trendArrows: [String: String] = [
         "None":           "",
         "DoubleUp":       "↑↑",

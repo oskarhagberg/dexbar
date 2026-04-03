@@ -122,7 +122,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let p = NSPopover()
         p.behavior = .transient
         p.contentViewController = vc
-        p.contentSize = CGSize(width: 640, height: 520)
+        p.contentSize = CGSize(width: 640, height: 600)
         p.appearance = NSAppearance(named: .darkAqua)
         popover = p
 
@@ -313,7 +313,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.glucoseWebVC?.injectHistory(self.graphData)
             self.glucoseWebVC?.pushReading(latest)
 
-            self.currentStats = glucoseStats(from: self.graphData)
+            self.currentStats = glucoseStats(from: self.graphData, thresholds: GlucoseThresholdsStore.current)
             self.updateStatusBarTitle()
         }
     }
