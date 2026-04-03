@@ -68,7 +68,6 @@ class GlookoService {
                 completion(false, "Could not sign in to Glooko. Check your email and password.")
                 return
             }
-            self.onNewSessionCookie?(cookie)
             self.fetchGlookoCode(cookie: cookie) { [weak self] code in
                 guard let self, let code else {
                     completion(false, "Signed in but could not retrieve Glooko patient ID.")
@@ -77,6 +76,7 @@ class GlookoService {
                 self.sessionCookie = cookie
                 self.glookoCode = code
                 dlog("[Glooko] Authenticated. glookoCode: \(code)")
+                self.onNewSessionCookie?(cookie)
                 completion(true, nil)
             }
         }
