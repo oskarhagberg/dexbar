@@ -199,6 +199,69 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
             </g>
           );
         })}
+        {hoveredEvent !== null && (() => {
+          const ev = events[hoveredEvent];
+          if (!ev) return null;
+          const cx = toX(ev.timestamp);
+          const rc = rCarbs(ev.carbs);
+          const rb = rBolus(ev.units);
+          const maxR = Math.max(rc, rb, 4);
+          // Re-compute cy (same logic as dot rendering)
+          let nearest = pts[0];
+          let minDist = Infinity;
+          for (const p of pts) {
+            const d = Math.abs(p.time - ev.timestamp);
+            if (d < minDist) { minDist = d; nearest = p; }
+          }
+          const cy = Math.max(pad.top + maxR + 2, nearest.y);
+          const { low: LOW, high: HIGH } = thresholds;
+          // Build rows: omit BG row if bg === 0, omit carbs row if carbs === 0
+          type TooltipRow = { value: string; unit: string; color: string };
+          const rows: TooltipRow[] = [];
+          if (ev.bg !== 0) rows.push({
+            value: ev.bg.toFixed(1),
+            unit: "mmol/L",
+            color: ev.bg < LOW ? "#f87171" : ev.bg > HIGH ? "#fb923c" : "#34d399"
+          });
+          if (ev.carbs !== 0) rows.push({ value: `${ev.carbs}g`, unit: "carbs", color: "rgba(255,255,255,0.65)" });
+          rows.push({ value: `${ev.units}U`, unit: "bolus", color: "rgba(200,220,255,0.65)" });
+          const tooltipWidth = 148;
+          const rowHeight = 22;
+          const tooltipHeight = rows.length * rowHeight + 24;
+          // Position: above dot by default, below when near the top
+          const showBelow = cy - maxR - tooltipHeight - 12 < pad.top + 4;
+          const ty = showBelow ? cy + maxR + 8 : cy - maxR - tooltipHeight - 10;
+          // Clamp horizontally so tooltip never overflows chart area
+          const tx = Math.min(Math.max(cx - tooltipWidth / 2, pad.left), pad.left + W - tooltipWidth);
+          // Stem line endpoints
+          const stemY1 = showBelow ? cy + maxR : cy - maxR;
+          const stemY2 = showBelow ? ty : ty + tooltipHeight;
+          return (
+            <>
+              <line
+                x1={cx} y1={stemY1}
+                x2={tx + tooltipWidth / 2} y2={stemY2}
+                stroke="rgba(255,255,255,0.15)" strokeWidth="0.75"
+              />
+              <rect
+                className="pump-tooltip-box"
+                x={tx} y={ty}
+                width={tooltipWidth} height={tooltipHeight}
+                rx={8}
+              />
+              {rows.map((row, ri) => {
+                const rowY = ty + 12 + ri * rowHeight;
+                return (
+                  <g key={ri}>
+                    <circle cx={tx + 18} cy={rowY + 11} r={4} fill={row.color} />
+                    <text x={tx + 30} y={rowY + 15} className="pump-tooltip-value">{row.value}</text>
+                    <text x={tx + 92} y={rowY + 15} className="pump-tooltip-unit">{row.unit}</text>
+                  </g>
+                );
+              })}
+            </>
+          );
+        })()}
         {ySteps.map(v => <text key={v} x={pad.left+W+8} y={toY(v)+4} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)">{v}</text>)}
         {timeLabels.map(tl => <text key={tl.x} x={tl.x} y={pad.top+H+24} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle">{tl.label}</text>)}
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="8" fill={getColor(cur)} clipPath="url(#cc)" opacity="0.3" />
