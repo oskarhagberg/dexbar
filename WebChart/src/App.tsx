@@ -21,11 +21,19 @@ type GlucoseThresholds = {
 
 const DEFAULT_THRESHOLDS: GlucoseThresholds = { low: 4.5, high: 10.0 };
 
+type PumpEvent = {
+  timestamp: number; // Unix ms, matches pumpTimestamp from Swift
+  units: number;     // insulin units delivered
+  carbs: number;     // grams (0 for correction boluses)
+  bg: number;        // mmol/L at time of bolus (0 if unavailable)
+};
+
 type InitialData = {
   readings: GlucosePoint[];
   stats: Record<string, GlucoseStats>; // keyed by range label: "3h" | "6h" | "12h" | "24h"
   thresholds: GlucoseThresholds;
   currentReading: { value: number; trend: string; timestamp: number };
+  pumpEvents?: PumpEvent[];
 };
 
 type LiveUpdate = {
@@ -34,6 +42,7 @@ type LiveUpdate = {
   timestamp: number;
   stats: Record<string, GlucoseStats>; // keyed by range label: "3h" | "6h" | "12h" | "24h"
   thresholds?: GlucoseThresholds; // optional — only sent when thresholds change
+  pumpEvents?: PumpEvent[];
 };
 
 // ---------------------------------------------------------------------------
@@ -64,10 +73,11 @@ const RANGES = [
   { label: "24h", hours: 24 },
 ];
 
-function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 16 }: {
+function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 16, events: _events = [] }: {
   data: GlucosePoint[];
   thresholds?: GlucoseThresholds;
   yMin?: number; yMax?: number;
+  events?: PumpEvent[];
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [dims, setDims] = useState({ w: 800, h: 320 });
@@ -228,12 +238,18 @@ export default function App() {
     return d?.currentReading?.trend ?? null;
   });
 
+  const [pumpEvents, setPumpEvents] = useState<PumpEvent[]>(() => {
+    const d = (window as any).__INITIAL_DATA__ as InitialData | undefined;
+    return d?.pumpEvents ?? [];
+  });
+
   useEffect(() => {
     (window as any).updateReading = (update: LiveUpdate) => {
       setReadings(prev => [...prev, { time: update.timestamp, value: update.value }]);
       setLiveTrend(update.trend ?? null);
       setStats(update.stats);
       if (update.thresholds) setThresholds(update.thresholds);
+      if (update.pumpEvents !== undefined) setPumpEvents(update.pumpEvents);
     };
     return () => { delete (window as any).updateReading; };
   }, []);
@@ -247,6 +263,7 @@ export default function App() {
   // Chart shows the selected time window; fall back to full history if window is empty
   const chartData = readings.filter(d => d.time >= cutoff);
   const visibleData = chartData.length >= 2 ? chartData : readings;
+  const visibleEvents = pumpEvents.filter(e => e.timestamp >= cutoff);
 
   // Current value always from the latest reading regardless of selected range
   const cur = readings[readings.length - 1].value;
@@ -296,22 +313,7 @@ export default function App() {
             </div>
           </div>
           <div style={{ padding:"0 10px 4px", height:260 }}>
-            <GlucoseChart data={visibleData} thresholds={thresholds} />
-          </div>
-          <div style={{ padding:"6px 22px 16px", display:"flex", gap:20, alignItems:"center" }}>
-            {[
-              { label:`High >${thresholds.high}`, dash:true, color:"var(--color-high)" },
-              { label:`Target ${thresholds.low}–${thresholds.high}`, fill:true, color:"var(--color-in-range)" },
-              { label:`Low <${thresholds.low}`, dash:true, color:"var(--color-low)" },
-            ].map(item => (
-              <div key={item.label} style={{ display:"flex", alignItems:"center", gap:6 }}>
-                {item.fill
-                  ? <div style={{ width:18, height:9, borderRadius:3, background:"var(--color-legend-fill)", border:"1px solid var(--color-legend-border)" }} />
-                  : <div style={{ width:18, height:1, borderTop:`1px dashed ${item.color}`, opacity:0.5 }} />
-                }
-                <span style={{ fontSize:10, color:"var(--color-text-legend)", letterSpacing:"0.02em" }}>{item.label}</span>
-              </div>
-            ))}
+            <GlucoseChart data={visibleData} thresholds={thresholds} events={visibleEvents} />
           </div>
         </div>
 
