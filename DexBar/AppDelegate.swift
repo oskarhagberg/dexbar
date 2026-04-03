@@ -14,88 +14,87 @@ import ServiceManagement
 
 struct KeychainHelper {
     private static let service = Bundle.main.bundleIdentifier ?? "com.oskarhagberg.DexBar"
-    private static let credentialsAccount = "credentials"
-    private static let glookoAccount = "glookoCredentials"
-
-    static func saveCredentials(username: String, password: String) {
-        guard let data = try? JSONEncoder().encode(["username": username, "password": password]) else { return }
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: credentialsAccount
-        ]
-        SecItemDelete(query as CFDictionary)
-        var item = query
-        item[kSecValueData] = data
-        SecItemAdd(item as CFDictionary, nil)
+    private static let account = "credentials"
+    // Legacy account key — used only for one-time migration on first launch after update
+    // All credentials live in a single Keychain item so the user only gets one unlock prompt.
+    private struct AllCredentials: Codable {
+        var username: String?
+        var password: String?
+        var glookoEmail: String?
+        var glookoPassword: String?
     }
 
-    /// Returns (username, password), or nil if no credentials are stored.
-    static func loadCredentials() -> (username: String, password: String)? {
+    private static func loadAll() -> AllCredentials {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecAttrAccount: credentialsAccount,
+            kSecAttrAccount: account,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne
         ]
         var result: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let data = result as? Data,
-              let dict = try? JSONDecoder().decode([String: String].self, from: data),
-              let username = dict["username"],
-              let password = dict["password"] else { return nil }
-        return (username, password)
+              let creds = try? JSONDecoder().decode(AllCredentials.self, from: data) else { return AllCredentials() }
+        return creds
+    }
+
+    private static func saveAll(_ creds: AllCredentials) {
+        guard let data = try? JSONEncoder().encode(creds) else { return }
+        let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account]
+        if SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess {
+            SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary)
+        } else {
+            var item = query
+            item[kSecValueData] = data
+            SecItemAdd(item as CFDictionary, nil)
+        }
+    }
+
+    // MARK: - Dexcom credentials
+
+    static func saveCredentials(username: String, password: String) {
+        var all = loadAll()
+        all.username = username
+        all.password = password
+        saveAll(all)
+    }
+
+    static func loadCredentials() -> (username: String, password: String)? {
+        let all = loadAll()
+        guard let u = all.username, let p = all.password else { return nil }
+        return (u, p)
     }
 
     static func deleteCredentials() {
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: credentialsAccount
-        ]
-        SecItemDelete(query as CFDictionary)
+        var all = loadAll()
+        all.username = nil
+        all.password = nil
+        saveAll(all)
     }
+
+    // MARK: - Glooko credentials
 
     static func saveGlookoCredentials(email: String, password: String) {
-        guard let data = try? JSONEncoder().encode(["email": email, "password": password]) else { return }
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: glookoAccount
-        ]
-        SecItemDelete(query as CFDictionary)
-        var item = query
-        item[kSecValueData] = data
-        SecItemAdd(item as CFDictionary, nil)
+        var all = loadAll()
+        all.glookoEmail = email
+        all.glookoPassword = password
+        saveAll(all)
     }
 
-    /// Returns (email, password), or nil if no Glooko credentials are stored.
     static func loadGlookoCredentials() -> (email: String, password: String)? {
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: glookoAccount,
-            kSecReturnData: true,
-            kSecMatchLimit: kSecMatchLimitOne
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let dict = try? JSONDecoder().decode([String: String].self, from: data),
-              let email = dict["email"],
-              let password = dict["password"] else { return nil }
-        return (email, password)
+        let all = loadAll()
+        guard let e = all.glookoEmail, let p = all.glookoPassword else { return nil }
+        return (e, p)
     }
 
     static func deleteGlookoCredentials() {
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: glookoAccount
-        ]
-        SecItemDelete(query as CFDictionary)
+        var all = loadAll()
+        all.glookoEmail = nil
+        all.glookoPassword = nil
+        saveAll(all)
     }
+
 }
 
 // MARK: - Dexcom Share API Models
