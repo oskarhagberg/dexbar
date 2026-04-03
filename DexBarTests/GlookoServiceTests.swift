@@ -1,4 +1,5 @@
-// DexBarTests/GlookoServiceTests.swift
+//  GlookoServiceTests.swift
+//  DexBarTests
 import Foundation
 import Testing
 @testable import DexBar
@@ -39,6 +40,15 @@ struct GlookoServiceTests {
         #expect(GlookoService.extractSessionCookie(from: response) == nil)
     }
 
+    @Test func extractsCorrectCookieWhenMultipleCookiesPresent() {
+        // HTTPURLResponse(headerFields:) joins multiple values for the same key with ",".
+        // Real HTTP traffic uses "\n". Both are handled by sessionCookie(from:).
+        let cookie = GlookoService.sessionCookie(
+            from: "_logbook-web_session=tok456; path=/\nother_cookie=xyz; path=/"
+        )
+        #expect(cookie == "_logbook-web_session=tok456")
+    }
+
     // MARK: - parsePumpEvents
 
     @Test func parsesValidBolus() throws {
@@ -65,13 +75,8 @@ struct GlookoServiceTests {
         #expect(abs(ev.units - 3.5) < 0.001)
         #expect(abs(ev.carbs - 45.0) < 0.001)
         #expect(abs(ev.bg - 7.6) < 0.001)
-        // Timestamp must be Unix ms for 2026-04-02T15:45:42Z
-        let date = Date(timeIntervalSince1970: ev.timestamp / 1000)
-        let cal = Calendar(identifier: .gregorian)
-        let comps = cal.dateComponents(in: TimeZone(identifier: "UTC")!, from: date)
-        #expect(comps.hour == 15)
-        #expect(comps.minute == 45)
-        #expect(comps.second == 42)
+        // 2026-04-02T15:45:42.000Z = Unix epoch 1775144742 seconds
+        #expect(ev.timestamp == 1775144742000)
     }
 
     @Test func filtersOutSoftDeletedOuter() {
@@ -206,5 +211,30 @@ struct GlookoServiceTests {
         let events = GlookoService.parsePumpEvents(from: json)
         #expect(events.count == 2)
         #expect(events[0].timestamp < events[1].timestamp)
+    }
+
+    @Test func parsesTimestampWithoutFractionalSeconds() throws {
+        let json = """
+        {
+          "histories": [
+            {
+              "type": "pumps_normal_boluses",
+              "softDeleted": false,
+              "item": {
+                "pumpTimestamp": "2026-04-02T15:45:42Z",
+                "insulinDelivered": 2.0,
+                "carbsInput": 0.0,
+                "bloodGlucoseInput": null,
+                "softDeleted": false
+              }
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+        let events = GlookoService.parsePumpEvents(from: json)
+        #expect(events.count == 1)
+        let ev = try #require(events.first)
+        // 2026-04-02T15:45:42Z = 1775144742 seconds since epoch
+        #expect(ev.timestamp == 1775144742000)
     }
 }
