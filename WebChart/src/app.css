@@ -28,13 +28,13 @@
 
   /* ── Text hierarchy ──────────────────────────────────────────────────────── */
   --color-text-primary:    rgba(255, 255, 255, 0.90);  /* Stat values (TIR %, average, period low) */
-  --color-text-secondary:  rgba(255, 255, 255, 0.30);  /* Stat pill labels, "mmol/L" unit, tooltip */
-  --color-text-dim:        rgba(255, 255, 255, 0.28);  /* "Dexcom G7" label, inactive range buttons */
-  --color-text-axis:       rgba(255, 255, 255, 0.25);  /* Chart Y-axis numbers, X-axis time labels */
-  --color-text-legend:     rgba(255, 255, 255, 0.22);  /* "Glucose History" heading, legend labels */
-  --color-text-faint:      rgba(255, 255, 255, 0.15);  /* Live clock timestamp (top right) */
-  --color-text-ghost:      rgba(255, 255, 255, 0.10);  /* Footer "Omnipod 5 · Auto Mode…" line */
-  --color-text-empty:      rgba(255, 255, 255, 0.20);  /* "Waiting for data" / "No data for range" */
+  --color-text-secondary:  rgba(255, 255, 255, 0.50);  /* Stat pill labels, "mmol/L" unit, tooltip */
+  --color-text-dim:        rgba(255, 255, 255, 0.48);  /* "Dexcom G7" label, inactive range buttons */
+  --color-text-axis:       rgba(255, 255, 255, 0.45);  /* Chart Y-axis numbers, X-axis time labels */
+  --color-text-legend:     rgba(255, 255, 255, 0.42);  /* "Glucose History" heading, legend labels */
+  --color-text-faint:      rgba(255, 255, 255, 0.35);  /* Live clock timestamp (top right) */
+  --color-text-ghost:      rgba(255, 255, 255, 0.30);  /* Footer "Omnipod 5 · Auto Mode…" line */
+  --color-text-empty:      rgba(255, 255, 255, 0.40);  /* "Waiting for data" / "No data for range" */
 
   /* ── Chart ───────────────────────────────────────────────────────────────── */
   --color-grid:            rgba(255, 255, 255, 0.06);  /* Horizontal + vertical grid lines */
