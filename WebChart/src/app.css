@@ -55,3 +55,55 @@
   --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; /* UI text, labels, buttons */
   --font-mono:    'SF Mono', ui-monospace, Menlo, monospace;                       /* Glucose values, chart axes */
 }
+
+/* ── Pump event dots ─────────────────────────────────────────────────────── */
+
+.pump-event-group {
+  cursor: pointer;
+}
+
+.pump-event-carbs {
+  fill: rgba(255, 255, 255, 0.42);
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 1;
+}
+
+.pump-event-bolus {
+  fill: rgba(200, 220, 255, 0.22);
+  stroke: rgba(200, 220, 255, 0.18);
+  stroke-width: 1;
+}
+
+.pump-event-pip {
+  fill: white;
+  opacity: 0.35;
+}
+
+.pump-event-group:hover .pump-event-carbs {
+  fill: rgba(255, 255, 255, 0.62);
+}
+
+.pump-event-group:hover .pump-event-bolus {
+  fill: rgba(200, 220, 255, 0.38);
+}
+
+/* ── Pump event tooltip ──────────────────────────────────────────────────── */
+
+.pump-tooltip-box {
+  fill: rgba(8, 8, 18, 0.97);
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 0.5;
+}
+
+.pump-tooltip-value {
+  fill: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.pump-tooltip-unit {
+  fill: var(--color-text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
