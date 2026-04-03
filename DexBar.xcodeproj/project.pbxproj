@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA11BB22CC33DD44AA11BB23 /* bundle-native.html in Resources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44AA11BB22 /* bundle-native.html */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		753054332E56FC60007256A4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,12 +31,8 @@
 		753054242E56FC5E007256A4 /* DexBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DexBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		753054322E56FC60007256A4 /* DexBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DexBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7530543C2E56FC60007256A4 /* DexBarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DexBarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA11BB22CC33DD44AA11BB22 /* bundle-native.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = "bundle-native.html"; path = "bundle-native.html"; sourceTree = "<group>"; };
+		AA11BB22CC33DD44AA11BB22 /* bundle-native.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "bundle-native.html"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXBuildFile section */
-		AA11BB22CC33DD44AA11BB23 /* bundle-native.html in Resources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44AA11BB22 /* bundle-native.html */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		753054262E56FC5E007256A4 /* DexBar */ = {

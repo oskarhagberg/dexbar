@@ -14,13 +14,14 @@ import ServiceManagement
 
 struct KeychainHelper {
     private static let service = Bundle.main.bundleIdentifier ?? "com.oskarhagberg.DexBar"
+    private static let credentialsAccount = "credentials"
 
-    static func save(_ value: String, for key: String) {
-        let data = Data(value.utf8)
+    static func saveCredentials(username: String, password: String) {
+        guard let data = try? JSONEncoder().encode(["username": username, "password": password]) else { return }
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecAttrAccount: key
+            kSecAttrAccount: credentialsAccount
         ]
         SecItemDelete(query as CFDictionary)
         var item = query
@@ -28,25 +29,29 @@ struct KeychainHelper {
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    static func load(for key: String) -> String? {
+    /// Returns (username, password), or nil if no credentials are stored.
+    static func loadCredentials() -> (username: String, password: String)? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecAttrAccount: key,
+            kSecAttrAccount: credentialsAccount,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne
         ]
         var result: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+              let data = result as? Data,
+              let dict = try? JSONDecoder().decode([String: String].self, from: data),
+              let username = dict["username"],
+              let password = dict["password"] else { return nil }
+        return (username, password)
     }
 
-    static func delete(for key: String) {
+    static func deleteCredentials() {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecAttrAccount: key
+            kSecAttrAccount: credentialsAccount
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -105,8 +110,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isAuthenticated = false
 
     private let dexcom = DexcomClient()
-    private var username: String { KeychainHelper.load(for: "username") ?? "" }
-    private var password: String { KeychainHelper.load(for: "password") ?? "" }
+    private var username: String = ""
+    private var password: String = ""
     private var sessionId: String?
 
 
@@ -126,7 +131,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         p.appearance = NSAppearance(named: .darkAqua)
         popover = p
 
-        if KeychainHelper.load(for: "username") != nil {
+        // Load credentials once at startup — single Keychain prompt.
+        if let creds = KeychainHelper.loadCredentials() {
+            username = creds.username
+            password = creds.password
+        }
+
+        if !username.isEmpty {
             setStatusTitle("…")
             startPolling()
         } else {
@@ -241,8 +252,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Called from Preferences: saves credentials then verifies them end-to-end.
     func signIn(username: String, password: String, completion: @escaping (Bool, String?) -> Void) {
-        KeychainHelper.save(username, for: "username")
-        KeychainHelper.save(password, for: "password")
+        self.username = username
+        self.password = password
+        KeychainHelper.saveCredentials(username: username, password: password)
         sessionId = nil
         dexcom.authenticate(username: username, password: password) { [weak self] sid in
             guard let self, let sid else {
@@ -307,9 +319,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         timer?.invalidate()
         timer = nil
         sessionId = nil
+        username = ""
+        password = ""
         graphData = []
-        KeychainHelper.delete(for: "username")
-        KeychainHelper.delete(for: "password")
+        KeychainHelper.deleteCredentials()
         markUnauthenticated()
     }
 
@@ -351,14 +364,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let onSignOut: () -> Void
         let onSaveThresholds: (GlucoseThresholds) -> Void
 
-        @State private var username: String = KeychainHelper.load(for: "username") ?? ""
-        @State private var password: String = KeychainHelper.load(for: "password") ?? ""
+        @State private var username: String
+        @State private var password: String
         @State private var lowText: String = String(format: "%.1f", GlucoseThresholdsStore.current.low)
         @State private var highText: String = String(format: "%.1f", GlucoseThresholdsStore.current.high)
         @State private var thresholdError: String? = nil
 
         enum SignInStatus { case idle, loading, success, failure(String) }
         @State private var status: SignInStatus = .idle
+
+        init(
+            onSignIn: @escaping (String, String, @escaping (Bool, String?) -> Void) -> Void,
+            onSignOut: @escaping () -> Void,
+            onSaveThresholds: @escaping (GlucoseThresholds) -> Void
+        ) {
+            self.onSignIn = onSignIn
+            self.onSignOut = onSignOut
+            self.onSaveThresholds = onSaveThresholds
+            let creds = KeychainHelper.loadCredentials()
+            _username = State(initialValue: creds?.username ?? "")
+            _password = State(initialValue: creds?.password ?? "")
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 16) {
