@@ -22,6 +22,7 @@ struct KeychainHelper {
         var password: String?
         var glookoEmail: String?
         var glookoPassword: String?
+        var glookoSessionCookie: String?
     }
 
     private static func loadAll() -> AllCredentials {
@@ -92,7 +93,18 @@ struct KeychainHelper {
         var all = loadAll()
         all.glookoEmail = nil
         all.glookoPassword = nil
+        all.glookoSessionCookie = nil
         saveAll(all)
+    }
+
+    static func saveGlookoSessionCookie(_ cookie: String) {
+        var all = loadAll()
+        all.glookoSessionCookie = cookie
+        saveAll(all)
+    }
+
+    static func loadGlookoSessionCookie() -> String? {
+        return loadAll().glookoSessionCookie
     }
 
 }
