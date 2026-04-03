@@ -298,6 +298,8 @@ struct NetworkTests {
                     return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
                 }
             }
+            var capturedCookie: String?
+            svc.onNewSessionCookie = { capturedCookie = $0 }
             let result: (Bool, String?) = await withCheckedContinuation { cont in
                 svc.authenticate(email: "u@test.com", password: "p",
                                  cachedCookie: "_logbook-web_session=stale") { ok, err in
@@ -306,6 +308,7 @@ struct NetworkTests {
             }
             #expect(result.0 == true)
             #expect(callCount == 3)
+            #expect(capturedCookie == "_logbook-web_session=newcookie456")
         }
 
         @Test func authenticate_firesOnNewSessionCookieCallback() async {
