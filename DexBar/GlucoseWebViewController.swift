@@ -108,6 +108,8 @@ class GlucoseWebViewController: NSViewController {
     }
 
     // MARK: - Public API
+    // All public methods must be called on the main thread (AppDelegate.updateUI
+    // dispatches via DispatchQueue.main.async before calling into this VC).
 
     /// Call this with the historical readings buffer before or after page load.
     /// Installs a WKUserScript so the chart boots with data, and also
@@ -152,7 +154,10 @@ class GlucoseWebViewController: NSViewController {
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let json = String(data: data, encoding: .utf8) else { return }
+              let json = String(data: data, encoding: .utf8) else {
+            dlog("[GlucoseWebVC] injectHistory: failed to serialize __INITIAL_DATA__")
+            return
+        }
 
         sentThresholds = t
 
@@ -210,7 +215,10 @@ class GlucoseWebViewController: NSViewController {
         }
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
-              let json = String(data: data, encoding: .utf8) else { return }
+              let json = String(data: data, encoding: .utf8) else {
+            dlog("[GlucoseWebVC] pushReading: failed to serialize updateReading payload")
+            return
+        }
 
         if isLoaded {
             // Guard with typeof so we get a silent no-op (not a JS exception) when
