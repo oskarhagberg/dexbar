@@ -1,0 +1,57 @@
+:root {
+  /* ── Semantic status ─────────────────────────────────────────────────────── */
+  --color-in-range:        #34d399;
+  --color-high:            #fb923c;
+  --color-low:             #f87171;
+  --color-trend-danger:    #ef4444;  /* DoubleUp / DoubleDown */
+  --color-trend-warn:      #fbbf24;  /* FortyFiveUp / FortyFiveDown */
+  --color-trend-falling:   #818cf8;  /* SingleDown */
+
+  /* ── Status badge (fill + border) ───────────────────────────────────────── */
+  --color-in-range-bg:     rgba(52,  211, 153, 0.10);
+  --color-in-range-border: rgba(52,  211, 153, 0.25);
+  --color-high-bg:         rgba(251, 146, 60,  0.10);
+  --color-high-border:     rgba(251, 146, 60,  0.25);
+  --color-low-bg:          rgba(248, 113, 113, 0.10);
+  --color-low-border:      rgba(248, 113, 113, 0.25);
+
+  /* ── App background & surfaces ───────────────────────────────────────────── */
+  --color-bg:              #09090f;
+  --color-surface:         rgba(255, 255, 255, 0.022);
+  --color-surface-raised:  rgba(255, 255, 255, 0.03);
+  --color-surface-subtle:  rgba(255, 255, 255, 0.05);
+  --color-surface-active:  rgba(255, 255, 255, 0.10);
+
+  /* ── Borders ─────────────────────────────────────────────────────────────── */
+  --color-border:          rgba(255, 255, 255, 0.07);
+  --color-border-strong:   rgba(255, 255, 255, 0.10);
+
+  /* ── Text hierarchy ──────────────────────────────────────────────────────── */
+  --color-text-primary:    rgba(255, 255, 255, 0.90);
+  --color-text-secondary:  rgba(255, 255, 255, 0.30);
+  --color-text-dim:        rgba(255, 255, 255, 0.28);
+  --color-text-axis:       rgba(255, 255, 255, 0.25);
+  --color-text-legend:     rgba(255, 255, 255, 0.22);
+  --color-text-faint:      rgba(255, 255, 255, 0.15);
+  --color-text-ghost:      rgba(255, 255, 255, 0.10);
+  --color-text-empty:      rgba(255, 255, 255, 0.20);
+
+  /* ── Chart ───────────────────────────────────────────────────────────────── */
+  --color-grid:            rgba(255, 255, 255, 0.06);
+  --color-range-band:      rgba(52,  211, 153, 0.05);
+  --color-legend-fill:     rgba(52,  211, 153, 0.14);
+  --color-legend-border:   rgba(52,  211, 153, 0.22);
+  --color-glow-green:      rgba(52,  211, 153, 0.07);
+  --color-glow-purple:     rgba(129, 140, 248, 0.06);
+
+  /* ── Hover tooltip ───────────────────────────────────────────────────────── */
+  --color-tooltip-bg:      rgba(10,  10,  20,  0.95);
+  --color-tooltip-time:    rgba(255, 255, 255, 0.35);
+
+  /* ── Card shadow ─────────────────────────────────────────────────────────── */
+  --shadow-card: 0 0 0 1px rgba(255,255,255,0.03), 0 28px 64px rgba(0,0,0,0.55);
+
+  /* ── Typography ──────────────────────────────────────────────────────────── */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-mono:    'SF Mono', ui-monospace, Menlo, monospace;
+}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import "./app.css";
 
 // ---------------------------------------------------------------------------
 // Types — must match the Swift side exactly
@@ -40,15 +41,15 @@ type LiveUpdate = {
 // ---------------------------------------------------------------------------
 
 const DEXCOM_TREND_MAP: Record<string, { arrow: string; color: string }> = {
-  DoubleUp:       { arrow: "↑↑", color: "#ef4444" },
-  SingleUp:       { arrow: "↑",  color: "#fb923c" },
-  FortyFiveUp:    { arrow: "↗",  color: "#fbbf24" },
-  Flat:           { arrow: "→",  color: "#34d399" },
-  FortyFiveDown:  { arrow: "↘",  color: "#fbbf24" },
-  SingleDown:     { arrow: "↓",  color: "#818cf8" },
-  DoubleDown:     { arrow: "↓↓", color: "#ef4444" },
-  NotComputable:  { arrow: "?",  color: "rgba(255,255,255,0.3)" },
-  RateOutOfRange: { arrow: "-",  color: "rgba(255,255,255,0.3)" },
+  DoubleUp:       { arrow: "↑↑", color: "var(--color-trend-danger)" },
+  SingleUp:       { arrow: "↑",  color: "var(--color-high)" },
+  FortyFiveUp:    { arrow: "↗",  color: "var(--color-trend-warn)" },
+  Flat:           { arrow: "→",  color: "var(--color-in-range)" },
+  FortyFiveDown:  { arrow: "↘",  color: "var(--color-trend-warn)" },
+  SingleDown:     { arrow: "↓",  color: "var(--color-trend-falling)" },
+  DoubleDown:     { arrow: "↓↓", color: "var(--color-trend-danger)" },
+  NotComputable:  { arrow: "?",  color: "var(--color-text-secondary)" },
+  RateOutOfRange: { arrow: "-",  color: "var(--color-text-secondary)" },
   None:           { arrow: "",   color: "transparent" },
 };
 
@@ -109,7 +110,7 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
   }
 
   const ySteps = [4, 6, 8, 10, 12, 14];
-  const getColor = (v: number) => v < LOW ? "#f87171" : v > HIGH ? "#fb923c" : "#34d399";
+  const getColor = (v: number) => v < LOW ? "var(--color-low)" : v > HIGH ? "var(--color-high)" : "var(--color-in-range)";
   const cur = data[data.length - 1].value;
   const lowY = toY(LOW), highY = toY(HIGH);
 
@@ -127,13 +128,13 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
       <svg ref={svgRef} width="100%" height="100%" onMouseMove={handleMouseMove} onMouseLeave={() => setHovered(null)} style={{ cursor:"crosshair" }}>
         <defs>
           <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#818cf8" />
-            <stop offset="45%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#34d399" />
+            <stop offset="0%" stopColor="var(--color-trend-falling)" />
+            <stop offset="45%" stopColor="var(--color-in-range)" />
+            <stop offset="100%" stopColor="var(--color-in-range)" />
           </linearGradient>
           <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#34d399" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-in-range)" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="var(--color-in-range)" stopOpacity="0" />
           </linearGradient>
           <filter id="glow">
             <feGaussianBlur stdDeviation="3" result="b" />
@@ -141,26 +142,26 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
           </filter>
           <clipPath id="cc"><rect x={pad.left} y={pad.top} width={W} height={H} /></clipPath>
         </defs>
-        {ySteps.map(v => <line key={v} x1={pad.left} x2={pad.left+W} y1={toY(v)} y2={toY(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />)}
-        {timeLabels.map(tl => <line key={tl.x} x1={tl.x} x2={tl.x} y1={pad.top} y2={pad.top+H} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />)}
-        <rect x={pad.left} y={highY} width={W} height={lowY - highY} fill="rgba(52,211,153,0.05)" clipPath="url(#cc)" />
-        <line x1={pad.left} x2={pad.left+W} y1={lowY} y2={lowY} stroke="#f87171" strokeWidth="1" strokeDasharray="4 4" opacity="0.4" />
-        <line x1={pad.left} x2={pad.left+W} y1={highY} y2={highY} stroke="#fb923c" strokeWidth="1" strokeDasharray="4 4" opacity="0.4" />
+        {ySteps.map(v => <line key={v} x1={pad.left} x2={pad.left+W} y1={toY(v)} y2={toY(v)} stroke="var(--color-grid)" strokeWidth="1" />)}
+        {timeLabels.map(tl => <line key={tl.x} x1={tl.x} x2={tl.x} y1={pad.top} y2={pad.top+H} stroke="var(--color-grid)" strokeWidth="1" />)}
+        <rect x={pad.left} y={highY} width={W} height={lowY - highY} fill="var(--color-range-band)" clipPath="url(#cc)" />
+        <line x1={pad.left} x2={pad.left+W} y1={lowY} y2={lowY} stroke="var(--color-low)" strokeWidth="1" strokeDasharray="4 4" opacity="0.4" />
+        <line x1={pad.left} x2={pad.left+W} y1={highY} y2={highY} stroke="var(--color-high)" strokeWidth="1" strokeDasharray="4 4" opacity="0.4" />
         <path d={areaD} fill="url(#ag)" clipPath="url(#cc)" />
         <path d={pathD} fill="none" stroke="url(#lg)" strokeWidth="2.5" strokeLinecap="round" clipPath="url(#cc)" filter="url(#glow)" />
-        {ySteps.map(v => <text key={v} x={pad.left+W+8} y={toY(v)+4} fill="rgba(255,255,255,0.25)" fontSize="11" fontFamily="'SF Mono',ui-monospace,Menlo,monospace">{v}</text>)}
-        {timeLabels.map(tl => <text key={tl.x} x={tl.x} y={pad.top+H+24} fill="rgba(255,255,255,0.25)" fontSize="11" fontFamily="'SF Mono',ui-monospace,Menlo,monospace" textAnchor="middle">{tl.label}</text>)}
+        {ySteps.map(v => <text key={v} x={pad.left+W+8} y={toY(v)+4} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)">{v}</text>)}
+        {timeLabels.map(tl => <text key={tl.x} x={tl.x} y={pad.top+H+24} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle">{tl.label}</text>)}
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="8" fill={getColor(cur)} clipPath="url(#cc)" opacity="0.3" />
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="4" fill={getColor(cur)} clipPath="url(#cc)" filter="url(#glow)" />
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="2" fill="white" clipPath="url(#cc)" />
         {hovered && (<>
-          <line x1={hovered.x} x2={hovered.x} y1={pad.top} y2={pad.top+H} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+          <line x1={hovered.x} x2={hovered.x} y1={pad.top} y2={pad.top+H} stroke="var(--color-border-strong)" strokeWidth="1" />
           <circle cx={hovered.x} cy={hovered.y} r="5" fill={getColor(hovered.value)} opacity="0.9" />
           <circle cx={hovered.x} cy={hovered.y} r="2.5" fill="white" />
           <g transform={`translate(${Math.min(hovered.x+12, pad.left+W-84)},${Math.max(hovered.y-44, pad.top)})`}>
-            <rect x="0" y="0" width="80" height="40" rx="7" fill="rgba(10,10,20,0.95)" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-            <text x="10" y="17" fill={getColor(hovered.value)} fontSize="15" fontWeight="700" fontFamily="'SF Mono',ui-monospace,Menlo,monospace">{hovered.value.toFixed(1)}</text>
-            <text x="10" y="31" fill="rgba(255,255,255,0.35)" fontSize="10" fontFamily="'SF Mono',ui-monospace,Menlo,monospace">{new Date(hovered.time).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</text>
+            <rect x="0" y="0" width="80" height="40" rx="7" fill="var(--color-tooltip-bg)" stroke="var(--color-border-strong)" strokeWidth="1" />
+            <text x="10" y="17" fill={getColor(hovered.value)} fontSize="15" fontWeight="700" fontFamily="var(--font-mono)">{hovered.value.toFixed(1)}</text>
+            <text x="10" y="31" fill="var(--color-tooltip-time)" fontSize="10" fontFamily="var(--font-mono)">{new Date(hovered.time).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</text>
           </g>
         </>)}
       </svg>
@@ -174,10 +175,10 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
 
 function Stat({ label, value, unit, color }: { label: string; value: string; unit?: string; color?: string }) {
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:3, padding:"12px 16px", borderRadius:14, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)" }}>
-      <span style={{ fontSize:10, letterSpacing:"0.12em", textTransform:"uppercase", color:"rgba(255,255,255,0.3)", fontWeight:600 }}>{label}</span>
-      <span style={{ fontSize:18, fontWeight:700, fontFamily:"'SF Mono',ui-monospace,Menlo,monospace", color: color || "rgba(255,255,255,0.9)" }}>
-        {value}{unit && <span style={{ fontSize:12, fontWeight:400, color:"rgba(255,255,255,0.3)", marginLeft:4 }}>{unit}</span>}
+    <div style={{ display:"flex", flexDirection:"column", gap:3, padding:"12px 16px", borderRadius:14, background:"var(--color-surface-raised)", border:"1px solid var(--color-border)" }}>
+      <span style={{ fontSize:10, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--color-text-secondary)", fontWeight:600 }}>{label}</span>
+      <span style={{ fontSize:18, fontWeight:700, fontFamily:"var(--font-mono)", color: color || "var(--color-text-primary)" }}>
+        {value}{unit && <span style={{ fontSize:12, fontWeight:400, color:"var(--color-text-secondary)", marginLeft:4 }}>{unit}</span>}
       </span>
     </div>
   );
@@ -189,10 +190,10 @@ function Stat({ label, value, unit, color }: { label: string; value: string; uni
 
 function EmptyState() {
   return (
-    <div style={{ minHeight:"100vh", background:"#09090f", display:"flex", alignItems:"center", justifyContent:"center" }}>
+    <div style={{ minHeight:"100vh", background:"var(--color-bg)", display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ textAlign:"center" }}>
-        <div style={{ width:8, height:8, borderRadius:"50%", background:"rgba(255,255,255,0.2)", margin:"0 auto 16px", animation:"pulse 2s infinite" }} />
-        <p style={{ color:"rgba(255,255,255,0.2)", fontSize:13, fontFamily:"-apple-system,sans-serif", letterSpacing:"0.04em" }}>
+        <div style={{ width:8, height:8, borderRadius:"50%", background:"var(--color-text-empty)", margin:"0 auto 16px", animation:"pulse 2s infinite" }} />
+        <p style={{ color:"var(--color-text-empty)", fontSize:13, fontFamily:"var(--font-display)", letterSpacing:"0.04em" }}>
           Waiting for data
         </p>
       </div>
@@ -250,16 +251,16 @@ export default function App() {
   // Current value always from the latest reading regardless of selected range
   const cur = readings[readings.length - 1].value;
   const { arrow, color: arrowColor } = DEXCOM_TREND_MAP[liveTrend ?? "Flat"] ?? DEXCOM_TREND_MAP["Flat"];
-  const curColor = cur < thresholds.low ? "#f87171" : cur > thresholds.high ? "#fb923c" : "#34d399";
+  const curColor = cur < thresholds.low ? "var(--color-low)" : cur > thresholds.high ? "var(--color-high)" : "var(--color-in-range)";
   const statusLabel = cur < thresholds.low ? "LOW" : cur > thresholds.high ? "HIGH" : "IN RANGE";
-  const statusBg = cur < thresholds.low ? "rgba(248,113,113,0.1)" : cur > thresholds.high ? "rgba(251,146,60,0.1)" : "rgba(52,211,153,0.1)";
-  const statusBorder = cur < thresholds.low ? "rgba(248,113,113,0.25)" : cur > thresholds.high ? "rgba(251,146,60,0.25)" : "rgba(52,211,153,0.25)";
+  const statusBg = cur < thresholds.low ? "var(--color-low-bg)" : cur > thresholds.high ? "var(--color-high-bg)" : "var(--color-in-range-bg)";
+  const statusBorder = cur < thresholds.low ? "var(--color-low-border)" : cur > thresholds.high ? "var(--color-high-border)" : "var(--color-in-range-border)";
 
   return (
-    <div style={{ minHeight:"100vh", background:"#09090f", color:"white", display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem 1.25rem", fontFamily:"-apple-system,BlinkMacSystemFont,'SF Pro Display',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"var(--color-bg)", color:"white", display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem 1.25rem", fontFamily:"var(--font-display)" }}>
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden" }}>
-        <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:700, height:700, borderRadius:"50%", background:"radial-gradient(circle, rgba(52,211,153,0.07) 0%, transparent 70%)" }} />
-        <div style={{ position:"absolute", top:"15%", left:"15%", width:350, height:350, borderRadius:"50%", background:"radial-gradient(circle, rgba(129,140,248,0.06) 0%, transparent 70%)" }} />
+        <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:700, height:700, borderRadius:"50%", background:"radial-gradient(circle, var(--color-glow-green) 0%, transparent 70%)" }} />
+        <div style={{ position:"absolute", top:"15%", left:"15%", width:350, height:350, borderRadius:"50%", background:"radial-gradient(circle, var(--color-glow-purple) 0%, transparent 70%)" }} />
       </div>
 
       <div style={{ position:"relative", width:"100%", maxWidth:640 }}>
@@ -267,30 +268,30 @@ export default function App() {
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:24 }}>
           <div>
             <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:8 }}>
-              <span style={{ fontSize:68, fontWeight:800, letterSpacing:"-3px", fontFamily:"'SF Mono',ui-monospace,Menlo,monospace", color:curColor, lineHeight:1 }}>{cur.toFixed(1)}</span>
+              <span style={{ fontSize:68, fontWeight:800, letterSpacing:"-3px", fontFamily:"var(--font-mono)", color:curColor, lineHeight:1 }}>{cur.toFixed(1)}</span>
               <span style={{ fontSize:34, fontWeight:700, color:arrowColor }}>{arrow}</span>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ color:"rgba(255,255,255,0.3)", fontSize:13, letterSpacing:"0.05em" }}>mmol/L</span>
+              <span style={{ color:"var(--color-text-secondary)", fontSize:13, letterSpacing:"0.05em" }}>mmol/L</span>
               <span style={{ fontSize:10, fontWeight:700, letterSpacing:"0.14em", padding:"4px 10px", borderRadius:999, background:statusBg, border:`1px solid ${statusBorder}`, color:curColor }}>{statusLabel}</span>
             </div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
             <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-              <span style={{ width:6, height:6, borderRadius:"50%", background:"#34d399", display:"inline-block", boxShadow:"0 0 10px #34d399" }} />
-              <span style={{ color:"rgba(255,255,255,0.28)", fontSize:12, letterSpacing:"0.03em" }}>Dexcom G7</span>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--color-in-range)", display:"inline-block", boxShadow:"0 0 10px var(--color-in-range)" }} />
+              <span style={{ color:"var(--color-text-dim)", fontSize:12, letterSpacing:"0.03em" }}>Dexcom G7</span>
             </div>
-            <span style={{ color:"rgba(255,255,255,0.15)", fontSize:11 }}>{new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>
+            <span style={{ color:"var(--color-text-faint)", fontSize:11 }}>{new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>
           </div>
         </div>
 
         {/* Chart */}
-        <div style={{ borderRadius:22, border:"1px solid rgba(255,255,255,0.07)", background:"rgba(255,255,255,0.022)", backdropFilter:"blur(16px)", overflow:"hidden", marginBottom:12, boxShadow:"0 0 0 1px rgba(255,255,255,0.03), 0 28px 64px rgba(0,0,0,0.55)" }}>
+        <div style={{ borderRadius:22, border:"1px solid var(--color-border)", background:"var(--color-surface)", backdropFilter:"blur(16px)", overflow:"hidden", marginBottom:12, boxShadow:"var(--shadow-card)" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 22px 8px" }}>
-            <span style={{ color:"rgba(255,255,255,0.22)", fontSize:11, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:600 }}>Glucose History</span>
-            <div style={{ display:"flex", gap:2, background:"rgba(255,255,255,0.05)", borderRadius:10, padding:3 }}>
+            <span style={{ color:"var(--color-text-legend)", fontSize:11, letterSpacing:"0.13em", textTransform:"uppercase", fontWeight:600 }}>Glucose History</span>
+            <div style={{ display:"flex", gap:2, background:"var(--color-surface-subtle)", borderRadius:10, padding:3 }}>
               {RANGES.map((r, i) => (
-                <button key={r.label} onClick={() => setActiveRange(i)} style={{ padding:"5px 14px", borderRadius:7, border:"none", fontSize:12, fontWeight:600, letterSpacing:"0.04em", cursor:"pointer", transition:"all 0.2s", background: activeRange===i ? "rgba(255,255,255,0.1)" : "transparent", color: activeRange===i ? "white" : "rgba(255,255,255,0.28)", fontFamily:"-apple-system,sans-serif" }}>{r.label}</button>
+                <button key={r.label} onClick={() => setActiveRange(i)} style={{ padding:"5px 14px", borderRadius:7, border:"none", fontSize:12, fontWeight:600, letterSpacing:"0.04em", cursor:"pointer", transition:"all 0.2s", background: activeRange===i ? "var(--color-surface-active)" : "transparent", color: activeRange===i ? "white" : "var(--color-text-dim)", fontFamily:"var(--font-display)" }}>{r.label}</button>
               ))}
             </div>
           </div>
@@ -299,16 +300,16 @@ export default function App() {
           </div>
           <div style={{ padding:"6px 22px 16px", display:"flex", gap:20, alignItems:"center" }}>
             {[
-              { label:`High >${thresholds.high}`, dash:true, color:"#fb923c" },
-              { label:`Target ${thresholds.low}–${thresholds.high}`, fill:true, color:"#34d399" },
-              { label:`Low <${thresholds.low}`, dash:true, color:"#f87171" },
+              { label:`High >${thresholds.high}`, dash:true, color:"var(--color-high)" },
+              { label:`Target ${thresholds.low}–${thresholds.high}`, fill:true, color:"var(--color-in-range)" },
+              { label:`Low <${thresholds.low}`, dash:true, color:"var(--color-low)" },
             ].map(item => (
               <div key={item.label} style={{ display:"flex", alignItems:"center", gap:6 }}>
                 {item.fill
-                  ? <div style={{ width:18, height:9, borderRadius:3, background:"rgba(52,211,153,0.14)", border:"1px solid rgba(52,211,153,0.22)" }} />
+                  ? <div style={{ width:18, height:9, borderRadius:3, background:"var(--color-legend-fill)", border:"1px solid var(--color-legend-border)" }} />
                   : <div style={{ width:18, height:1, borderTop:`1px dashed ${item.color}`, opacity:0.5 }} />
                 }
-                <span style={{ fontSize:10, color:"rgba(255,255,255,0.22)", letterSpacing:"0.02em" }}>{item.label}</span>
+                <span style={{ fontSize:10, color:"var(--color-text-legend)", letterSpacing:"0.02em" }}>{item.label}</span>
               </div>
             ))}
           </div>
@@ -320,7 +321,7 @@ export default function App() {
             <Stat
               label="Time in Range"
               value={`${activeStats.timeInRangePercent}%`}
-              color={activeStats.timeInRangePercent >= 70 ? "#34d399" : activeStats.timeInRangePercent >= 50 ? "#fbbf24" : "#f87171"}
+              color={activeStats.timeInRangePercent >= 70 ? "var(--color-in-range)" : activeStats.timeInRangePercent >= 50 ? "var(--color-trend-warn)" : "var(--color-low)"}
             />
             <Stat
               label={`${activeStats.rangeLabel} Average`}
@@ -331,16 +332,16 @@ export default function App() {
               label="Period Low"
               value={activeStats.periodLow.toFixed(1)}
               unit="mmol/L"
-              color={activeStats.periodLow < thresholds.low ? "#f87171" : undefined}
+              color={activeStats.periodLow < thresholds.low ? "var(--color-low)" : undefined}
             />
           </>) : (
-            <div style={{ gridColumn:"1/-1", textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:12 }}>
+            <div style={{ gridColumn:"1/-1", textAlign:"center", color:"var(--color-text-empty)", fontSize:12 }}>
               No data for this range
             </div>
           )}
         </div>
 
-        <div style={{ textAlign:"center", color:"rgba(255,255,255,0.1)", fontSize:11, letterSpacing:"0.06em" }}>
+        <div style={{ textAlign:"center", color:"var(--color-text-ghost)", fontSize:11, letterSpacing:"0.06em" }}>
           Omnipod 5 · Auto Mode · Readings every 5 min
         </div>
       </div>
