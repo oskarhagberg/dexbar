@@ -238,3 +238,85 @@ struct GlookoServiceTests {
         #expect(ev.timestamp == 1775144742000)
     }
 }
+
+@Suite("GlookoService network", .serialized)
+struct GlookoServiceNetworkTests {
+
+    private let session: URLSession
+    private let svc: GlookoService
+
+    init() {
+        session = MockURLProtocol.makeSession()
+        svc = GlookoService(session: session)
+    }
+
+    @Test func authenticateSuccessStoresCookieAndCode() async {
+        var callCount = 0
+        MockURLProtocol.handler = { req in
+            callCount += 1
+            let url = req.url!
+            if callCount == 1 {
+                // Sign-in — return session cookie
+                let data = #"{"two_fa_required":false,"success":true}"#.data(using: .utf8)!
+                let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                    headerFields: ["Set-Cookie": "_logbook-web_session=tok123; domain=glooko.com; path=/"])!
+                return (data, response)
+            } else {
+                // session/users — return glookoCode
+                let data = #"{"currentUser":{"glookoCode":"eu-west-1-test-code","timezone":"Europe/Stockholm","meterUnits":"mmoll"}}"#.data(using: .utf8)!
+                let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (data, response)
+            }
+        }
+        let result: (Bool, String?) = await withCheckedContinuation { cont in
+            svc.authenticate(email: "user@test.com", password: "pass") { ok, err in
+                cont.resume(returning: (ok, err))
+            }
+        }
+        #expect(result.0 == true)
+        #expect(result.1 == nil)
+        #expect(callCount == 2)
+    }
+
+    @Test func authenticateFailsWhenSignInReturnsNoSetCookie() async {
+        MockURLProtocol.handler = { req in
+            let data = #"{"two_fa_required":false,"success":true}"#.data(using: .utf8)!
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (data, response)
+        }
+        let result: (Bool, String?) = await withCheckedContinuation { cont in
+            svc.authenticate(email: "user@test.com", password: "pass") { ok, err in
+                cont.resume(returning: (ok, err))
+            }
+        }
+        #expect(result.0 == false)
+        #expect(result.1 != nil)
+    }
+
+    @Test func authenticateFailsOnNetworkError() async {
+        MockURLProtocol.handler = { _ in throw URLError(.notConnectedToInternet) }
+        let result: (Bool, String?) = await withCheckedContinuation { cont in
+            svc.authenticate(email: "u", password: "p") { ok, err in cont.resume(returning: (ok, err)) }
+        }
+        #expect(result.0 == false)
+    }
+
+    @Test func fetchPumpEventsReturnsNilWhenNotAuthenticated() async {
+        let events: [PumpEvent]? = await withCheckedContinuation { cont in
+            svc.fetchPumpEvents(from: Date().addingTimeInterval(-3600), to: Date()) {
+                cont.resume(returning: $0)
+            }
+        }
+        #expect(events == nil)
+    }
+
+    @Test func clearSessionResetsState() async {
+        svc.clearSession()
+        let events: [PumpEvent]? = await withCheckedContinuation { cont in
+            svc.fetchPumpEvents(from: Date().addingTimeInterval(-3600), to: Date()) {
+                cont.resume(returning: $0)
+            }
+        }
+        #expect(events == nil)
+    }
+}

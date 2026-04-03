@@ -16,6 +16,137 @@ struct PumpEvent: Decodable {
 
 class GlookoService {
 
+    private let baseURL = "https://eu.api.glooko.com"
+    private let session: URLSession
+
+    private var sessionCookie: String?
+    private var glookoCode: String?
+    // Kept only for 401 retry — never persisted to disk or Keychain
+    private var cachedEmail: String?
+    private var cachedPassword: String?
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+
+    // MARK: - Public API
+
+    func authenticate(email: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+        cachedEmail = email
+        cachedPassword = password
+        signIn(email: email, password: password) { [weak self] cookie in
+            guard let self, let cookie else {
+                completion(false, "Could not sign in to Glooko. Check your email and password.")
+                return
+            }
+            self.fetchGlookoCode(cookie: cookie) { code in
+                guard let code else {
+                    completion(false, "Signed in but could not retrieve Glooko patient ID.")
+                    return
+                }
+                self.sessionCookie = cookie
+                self.glookoCode = code
+                dlog("[Glooko] Authenticated. glookoCode: \(code)")
+                completion(true, nil)
+            }
+        }
+    }
+
+    func fetchPumpEvents(from startDate: Date, to endDate: Date, completion: @escaping ([PumpEvent]?) -> Void) {
+        guard sessionCookie != nil, glookoCode != nil else {
+            dlog("[Glooko] fetchPumpEvents: no session — authenticate first")
+            completion(nil)
+            return
+        }
+        doFetchHistories(from: startDate, to: endDate, retry: true, completion: completion)
+    }
+
+    func clearSession() {
+        sessionCookie = nil
+        glookoCode = nil
+    }
+
+    // MARK: - Private network
+
+    private func signIn(email: String, password: String, completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: "\(baseURL)/api/v3/users/sign_in") else { completion(nil); return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ["user": ["email": email, "password": password]]
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: body) else { completion(nil); return }
+        request.httpBody = httpBody
+
+        session.dataTask(with: request) { _, response, error in
+            if let error { dlog("[Glooko] sign_in error:", error); completion(nil); return }
+            guard let http = response as? HTTPURLResponse else { completion(nil); return }
+            let cookie = GlookoService.extractSessionCookie(from: http)
+            if cookie == nil { dlog("[Glooko] sign_in: no session cookie in response") }
+            completion(cookie)
+        }.resume()
+    }
+
+    private func fetchGlookoCode(cookie: String, completion: @escaping (String?) -> Void) {
+        guard let url = URL(string: "\(baseURL)/api/v3/session/users") else { completion(nil); return }
+        var request = URLRequest(url: url)
+        request.setValue(cookie, forHTTPHeaderField: "Cookie")
+
+        session.dataTask(with: request) { data, _, error in
+            if let error { dlog("[Glooko] session/users error:", error); completion(nil); return }
+            guard let data else { completion(nil); return }
+            struct SessionResponse: Decodable {
+                struct User: Decodable { let glookoCode: String }
+                let currentUser: User
+            }
+            guard let resp = try? JSONDecoder().decode(SessionResponse.self, from: data) else {
+                dlog("[Glooko] session/users: decode error")
+                completion(nil)
+                return
+            }
+            completion(resp.currentUser.glookoCode)
+        }.resume()
+    }
+
+    private func doFetchHistories(from startDate: Date, to endDate: Date, retry: Bool, completion: @escaping ([PumpEvent]?) -> Void) {
+        guard let cookie = sessionCookie, let code = glookoCode else { completion(nil); return }
+
+        guard var components = URLComponents(string: "\(baseURL)/api/v3/users/summary/histories") else {
+            completion(nil); return
+        }
+        components.queryItems = [
+            URLQueryItem(name: "patient",   value: code),
+            URLQueryItem(name: "startDate", value: GlookoService.iso8601.string(from: startDate)),
+            URLQueryItem(name: "endDate",   value: GlookoService.iso8601.string(from: endDate))
+        ]
+        guard let url = components.url else { completion(nil); return }
+        var request = URLRequest(url: url)
+        request.setValue(cookie, forHTTPHeaderField: "Cookie")
+
+        session.dataTask(with: request) { [weak self] data, response, error in
+            guard let self else { return }
+            if let error { dlog("[Glooko] histories error:", error); completion(nil); return }
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 401, retry {
+                dlog("[Glooko] 401 — clearing session and re-authenticating")
+                self.sessionCookie = nil
+                self.glookoCode = nil
+                guard let email = self.cachedEmail, let password = self.cachedPassword else {
+                    completion(nil); return
+                }
+                self.authenticate(email: email, password: password) { [weak self] ok, _ in
+                    guard let self, ok else { completion(nil); return }
+                    self.doFetchHistories(from: startDate, to: endDate, retry: false, completion: completion)
+                }
+                return
+            }
+
+            guard let data else { completion(nil); return }
+            let events = GlookoService.parsePumpEvents(from: data)
+            dlog("[Glooko] Fetched \(events.count) pump events")
+            completion(events)
+        }.resume()
+    }
+
     // MARK: - Private raw response types
 
     private struct HistoriesResponse: Decodable {
@@ -36,7 +167,7 @@ class GlookoService {
         let softDeleted: Bool?
     }
 
-    private static let iso8601: ISO8601DateFormatter = {
+    static let iso8601: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
