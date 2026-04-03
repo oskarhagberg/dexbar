@@ -3,6 +3,10 @@
 
 enum GlucoseFormatter {
 
+    /// Clinical hypoglycaemia alarm threshold — used for the red colour and ⚠️ warning
+    /// in the status bar. Intentionally separate from the user-configurable TIR lower
+    /// bound in GlucoseThresholds; a reading can be "in TIR range" for stats purposes
+    /// while still triggering a low alert here.
     static let lowThreshold = 4.0
 
     private static let trendArrows: [String: String] = [
