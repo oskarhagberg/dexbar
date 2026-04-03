@@ -258,5 +258,69 @@ struct NetworkTests {
             }
             #expect(events == nil)
         }
+
+        @Test func authenticate_withValidCachedCookie_skipsSignIn() async {
+            var callCount = 0
+            MockURLProtocol.handler = { req in
+                callCount += 1
+                // Only session/users should be called — sign_in must be skipped
+                let data = #"{"currentUser":{"glookoCode":"eu-west-1-code","timezone":"UTC","meterUnits":"mmoll"}}"#.data(using: .utf8)!
+                return (data, HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            let result: (Bool, String?) = await withCheckedContinuation { cont in
+                svc.authenticate(email: "u@test.com", password: "p",
+                                 cachedCookie: "_logbook-web_session=cached123") { ok, err in
+                    cont.resume(returning: (ok, err))
+                }
+            }
+            #expect(result.0 == true)
+            #expect(callCount == 1)  // only session/users, no sign_in
+        }
+
+        @Test func authenticate_withInvalidCachedCookie_fallsBackToSignIn() async {
+            var callCount = 0
+            MockURLProtocol.handler = { req in
+                callCount += 1
+                let url = req.url!
+                if callCount == 1 {
+                    // fetchGlookoCode with stale cookie — bad JSON triggers fallback
+                    return ("{\"error\":\"unauthorized\"}".data(using: .utf8)!,
+                            HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)!)
+                } else if callCount == 2 {
+                    // sign_in — return new cookie
+                    let data = #"{"two_fa_required":false,"success":true}"#.data(using: .utf8)!
+                    let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                        headerFields: ["Set-Cookie": "_logbook-web_session=newcookie456; domain=glooko.com; path=/"])!
+                    return (data, response)
+                } else {
+                    // fetchGlookoCode with new cookie — succeed
+                    let data = #"{"currentUser":{"glookoCode":"eu-west-1-code","timezone":"UTC","meterUnits":"mmoll"}}"#.data(using: .utf8)!
+                    return (data, HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+                }
+            }
+            let result: (Bool, String?) = await withCheckedContinuation { cont in
+                svc.authenticate(email: "u@test.com", password: "p",
+                                 cachedCookie: "_logbook-web_session=stale") { ok, err in
+                    cont.resume(returning: (ok, err))
+                }
+            }
+            #expect(result.0 == true)
+            #expect(callCount == 3)
+        }
+
+        @Test func authenticate_firesOnNewSessionCookieCallback() async {
+            MockURLProtocol.handler = { req in
+                let data = #"{"currentUser":{"glookoCode":"code","timezone":"UTC","meterUnits":"mmoll"}}"#.data(using: .utf8)!
+                return (data, HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+            }
+            var capturedCookie: String?
+            svc.onNewSessionCookie = { capturedCookie = $0 }
+
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                svc.authenticate(email: "u@test.com", password: "p",
+                                 cachedCookie: "_logbook-web_session=cached999") { _, _ in cont.resume() }
+            }
+            #expect(capturedCookie == "_logbook-web_session=cached999")
+        }
     }
 }

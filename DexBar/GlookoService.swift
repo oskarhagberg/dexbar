@@ -25,22 +25,52 @@ class GlookoService {
     private var cachedEmail: String?
     private var cachedPassword: String?
 
+    /// Called whenever the service obtains a new valid session cookie.
+    /// AppDelegate uses this to persist the cookie to the Keychain.
+    var onNewSessionCookie: ((String) -> Void)?
+
     init(session: URLSession = .shared) {
         self.session = session
     }
 
     // MARK: - Public API
 
-    func authenticate(email: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+    func authenticate(
+        email: String,
+        password: String,
+        cachedCookie: String? = nil,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
         cachedEmail = email
         cachedPassword = password
+        if let cached = cachedCookie {
+            fetchGlookoCode(cookie: cached) { [weak self] code in
+                guard let self else { return }
+                if let code {
+                    self.sessionCookie = cached
+                    self.glookoCode = code
+                    dlog("[Glooko] Resumed session with cached cookie. glookoCode: \(code)")
+                    self.onNewSessionCookie?(cached)
+                    completion(true, nil)
+                } else {
+                    dlog("[Glooko] Cached cookie rejected — falling back to sign_in")
+                    self.fullSignIn(email: email, password: password, completion: completion)
+                }
+            }
+        } else {
+            fullSignIn(email: email, password: password, completion: completion)
+        }
+    }
+
+    private func fullSignIn(email: String, password: String, completion: @escaping (Bool, String?) -> Void) {
         signIn(email: email, password: password) { [weak self] cookie in
             guard let self, let cookie else {
                 completion(false, "Could not sign in to Glooko. Check your email and password.")
                 return
             }
-            self.fetchGlookoCode(cookie: cookie) { code in
-                guard let code else {
+            self.onNewSessionCookie?(cookie)
+            self.fetchGlookoCode(cookie: cookie) { [weak self] code in
+                guard let self, let code else {
                     completion(false, "Signed in but could not retrieve Glooko patient ID.")
                     return
                 }
@@ -81,7 +111,7 @@ class GlookoService {
             if let error { dlog("[Glooko] sign_in error:", error); completion(nil); return }
             guard let http = response as? HTTPURLResponse else { completion(nil); return }
             let cookie = GlookoService.extractSessionCookie(from: http)
-            if cookie == nil { dlog("[Glooko] sign_in: no session cookie in response") }
+            if cookie == nil { dlog("[Glooko] sign_in: no session cookie in response (status \(http.statusCode))") }
             completion(cookie)
         }.resume()
     }
