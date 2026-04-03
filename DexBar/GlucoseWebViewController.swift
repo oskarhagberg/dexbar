@@ -13,6 +13,9 @@ class GlucoseWebViewController: NSViewController {
     private var isLoaded = false
     private var hasStartedLoading = false
     private var pendingReading: DexcomReading?
+    private var storedReadings: [GraphDatum] = []
+    private var latestReading: DexcomReading? = nil
+    private var sentThresholds: GlucoseThresholds? = nil
 
     /// Set this to show or hide the "sign in" overlay over the chart.
     var isAuthenticated: Bool = false {
@@ -110,11 +113,48 @@ class GlucoseWebViewController: NSViewController {
     /// Installs a WKUserScript so the chart boots with data, and also
     /// updates window.__INITIAL_DATA__ directly if the page is already loaded.
     func injectHistory(_ readings: [GraphDatum]) {
+        storedReadings = readings
+
+        let t = GlucoseThresholdsStore.current
         let points = readings.map { r -> [String: Double] in
             ["time": r.timestamp.timeIntervalSince1970 * 1000, "value": r.value]
         }
-        guard let data = try? JSONSerialization.data(withJSONObject: points),
+        let thresholdsDict: [String: Double] = ["low": t.low, "high": t.high]
+
+        let statsValue: Any
+        if let stats = glucoseStats(from: readings, thresholds: t) {
+            statsValue = [
+                "timeInRangePercent": stats.timeInRangePercent,
+                "average": stats.average,
+                "periodLow": stats.periodLow,
+                "rangeLabel": stats.rangeLabel
+            ] as [String: Any]
+        } else {
+            statsValue = NSNull()
+        }
+
+        let currentReadingValue: Any
+        if let lr = latestReading {
+            currentReadingValue = [
+                "value": lr.valueMmol,
+                "trend": GlucoseFormatter.normalisedTrend(lr.trend),
+                "timestamp": lr.timestamp.timeIntervalSince1970 * 1000
+            ] as [String: Any]
+        } else {
+            currentReadingValue = NSNull()
+        }
+
+        let payload: [String: Any] = [
+            "readings": points,
+            "thresholds": thresholdsDict,
+            "stats": statsValue,
+            "currentReading": currentReadingValue
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }
+
+        sentThresholds = t
 
         // Replace any previously installed history script.
         // Note: removes ALL user scripts — this class is the only script installer.
@@ -141,11 +181,34 @@ class GlucoseWebViewController: NSViewController {
     /// Call this whenever a new live reading arrives.
     /// Queues the reading if the page hasn't finished loading yet.
     func pushReading(_ reading: DexcomReading) {
-        let payload: [String: Any] = [
+        latestReading = reading
+
+        let t = GlucoseThresholdsStore.current
+
+        let statsValue: Any
+        if let stats = glucoseStats(from: storedReadings, thresholds: t) {
+            statsValue = [
+                "timeInRangePercent": stats.timeInRangePercent,
+                "average": stats.average,
+                "periodLow": stats.periodLow,
+                "rangeLabel": stats.rangeLabel
+            ] as [String: Any]
+        } else {
+            statsValue = NSNull()
+        }
+
+        var payload: [String: Any] = [
             "value":     reading.valueMmol,
             "trend":     GlucoseFormatter.normalisedTrend(reading.trend),
-            "timestamp": reading.timestamp.timeIntervalSince1970 * 1000
+            "timestamp": reading.timestamp.timeIntervalSince1970 * 1000,
+            "stats":     statsValue
         ]
+
+        if sentThresholds != t {
+            payload["thresholds"] = ["low": t.low, "high": t.high] as [String: Double]
+            sentThresholds = t
+        }
+
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else { return }
 
