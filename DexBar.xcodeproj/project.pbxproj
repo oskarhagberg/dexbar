@@ -105,6 +105,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 753054462E56FC60007256A4 /* Build configuration list for PBXNativeTarget "DexBar" */;
 			buildPhases = (
+				AA11BB22CC33DD44AA11BB24 /* Build WebChart */,
 				753054202E56FC5E007256A4 /* Sources */,
 				753054212E56FC5E007256A4 /* Frameworks */,
 				753054222E56FC5E007256A4 /* Resources */,
@@ -238,6 +239,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		AA11BB22CC33DD44AA11BB24 /* Build WebChart */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/WebChart/src/App.tsx",
+				"$(SRCROOT)/WebChart/src/index.css",
+				"$(SRCROOT)/WebChart/package.json",
+			);
+			name = "Build WebChart";
+			outputPaths = (
+				"$(SRCROOT)/bundle-native.html",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"\ncd \"$SRCROOT/WebChart\"\nbash build.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		753054202E56FC5E007256A4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -315,7 +337,7 @@
 				DEVELOPMENT_TEAM = TPN3AQ66F6;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -381,7 +403,7 @@
 				DEVELOPMENT_TEAM = TPN3AQ66F6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

@@ -66,8 +66,13 @@ jobs:
       - name: Stamp build number into project
         run: agvtool new-version -all ${{ steps.version.outputs.build }}
 
+      - name: Set up pnpm
+        run: corepack enable pnpm
+
       # Build a Release archive. Signing is disabled so the app runs
       # on any Mac after the user clears the quarantine flag (see release notes).
+      # The archive step also runs the "Build WebChart" script phase, which
+      # compiles bundle-native.html from WebChart/src on the fly.
       - name: Archive
         run: |
           xcodebuild archive \
