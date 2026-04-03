@@ -83,4 +83,13 @@ struct GlucoseStatsTests {
         let stats = glucoseStats(from: [datum(9.5)])
         #expect(stats?.timeInRangePercent == 100)
     }
+
+    @Test func rangeLabelMatchesPassedValue() {
+        let stats3h  = glucoseStats(from: [datum(6.0)], hours: 3,  rangeLabel: "3H")
+        let stats6h  = glucoseStats(from: [datum(6.0)], hours: 6,  rangeLabel: "6H")
+        let stats12h = glucoseStats(from: [datum(6.0)], hours: 12, rangeLabel: "12H")
+        #expect(stats3h?.rangeLabel  == "3H")
+        #expect(stats6h?.rangeLabel  == "6H")
+        #expect(stats12h?.rangeLabel == "12H")
+    }
 }

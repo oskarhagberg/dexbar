@@ -12,8 +12,7 @@ class GlucoseWebViewController: NSViewController {
     private var overlayView: NSView!
     private var isLoaded = false
     private var hasStartedLoading = false
-    private var pendingReading: DexcomReading?
-    private var storedReadings: [GraphDatum] = []
+    private var pendingPush: (() -> Void)?
     private var latestReading: DexcomReading? = nil
     private var sentThresholds: GlucoseThresholds? = nil
 
@@ -114,23 +113,22 @@ class GlucoseWebViewController: NSViewController {
     /// Call this with the historical readings buffer before or after page load.
     /// Installs a WKUserScript so the chart boots with data, and also
     /// updates window.__INITIAL_DATA__ directly if the page is already loaded.
-    func injectHistory(_ readings: [GraphDatum]) {
-        storedReadings = readings
-
-        let t = GlucoseThresholdsStore.current
+    func injectHistory(_ readings: [GraphDatum], stats: [String: GlucoseStats], thresholds: GlucoseThresholds) {
         let points = readings.map { r -> [String: Double] in
             ["time": r.timestamp.timeIntervalSince1970 * 1000, "value": r.value]
         }
-        let thresholdsDict: [String: Double] = ["low": t.low, "high": t.high]
+        let thresholdsDict: [String: Double] = ["low": thresholds.low, "high": thresholds.high]
 
         let statsValue: Any
-        if let stats = glucoseStats(from: readings, thresholds: t) {
-            statsValue = [
-                "timeInRangePercent": stats.timeInRangePercent,
-                "average": stats.average,
-                "periodLow": stats.periodLow,
-                "rangeLabel": stats.rangeLabel
-            ] as [String: Any]
+        if !stats.isEmpty {
+            var d: [String: Any] = [:]
+            for (key, s) in stats {
+                d[key] = ["timeInRangePercent": s.timeInRangePercent,
+                          "average": s.average,
+                          "periodLow": s.periodLow,
+                          "rangeLabel": s.rangeLabel] as [String: Any]
+            }
+            statsValue = d
         } else {
             statsValue = NSNull()
         }
@@ -159,7 +157,7 @@ class GlucoseWebViewController: NSViewController {
             return
         }
 
-        sentThresholds = t
+        sentThresholds = thresholds
 
         // Replace any previously installed history script.
         // Note: removes ALL user scripts — this class is the only script installer.
@@ -185,19 +183,19 @@ class GlucoseWebViewController: NSViewController {
 
     /// Call this whenever a new live reading arrives.
     /// Queues the reading if the page hasn't finished loading yet.
-    func pushReading(_ reading: DexcomReading) {
+    func pushReading(_ reading: DexcomReading, stats: [String: GlucoseStats], thresholds: GlucoseThresholds) {
         latestReading = reading
 
-        let t = GlucoseThresholdsStore.current
-
         let statsValue: Any
-        if let stats = glucoseStats(from: storedReadings, thresholds: t) {
-            statsValue = [
-                "timeInRangePercent": stats.timeInRangePercent,
-                "average": stats.average,
-                "periodLow": stats.periodLow,
-                "rangeLabel": stats.rangeLabel
-            ] as [String: Any]
+        if !stats.isEmpty {
+            var d: [String: Any] = [:]
+            for (key, s) in stats {
+                d[key] = ["timeInRangePercent": s.timeInRangePercent,
+                          "average": s.average,
+                          "periodLow": s.periodLow,
+                          "rangeLabel": s.rangeLabel] as [String: Any]
+            }
+            statsValue = d
         } else {
             statsValue = NSNull()
         }
@@ -209,9 +207,9 @@ class GlucoseWebViewController: NSViewController {
             "stats":     statsValue
         ]
 
-        if sentThresholds != t {
-            payload["thresholds"] = ["low": t.low, "high": t.high] as [String: Double]
-            sentThresholds = t
+        if sentThresholds != thresholds {
+            payload["thresholds"] = ["low": thresholds.low, "high": thresholds.high] as [String: Double]
+            sentThresholds = thresholds
         }
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
@@ -227,7 +225,9 @@ class GlucoseWebViewController: NSViewController {
                 if let error { dlog("[GlucoseWebVC] updateReading JS error:", error) }
             }
         } else {
-            pendingReading = reading
+            pendingPush = { [weak self] in
+                self?.pushReading(reading, stats: stats, thresholds: thresholds)
+            }
         }
     }
 
@@ -244,10 +244,8 @@ extension GlucoseWebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoaded = true
-        if let reading = pendingReading {
-            pushReading(reading)
-            pendingReading = nil
-        }
+        pendingPush?()
+        pendingPush = nil
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

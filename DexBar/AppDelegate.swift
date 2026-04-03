@@ -206,11 +206,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 onSaveThresholds: { [weak self] thresholds in
                     guard let self else { return }
                     GlucoseThresholdsStore.current = thresholds
-                    // Recompute stats and push update to the web chart
-                    self.currentStats = glucoseStats(from: self.graphData, thresholds: thresholds)
+                    // Recompute stats for all windows and push update to the web chart
+                    let allStats = allWindowStats(from: self.graphData, thresholds: thresholds)
+                    self.currentStats = allStats["24h"]
                     self.updateStatusBarTitle()
                     if let latest = self.latestReading {
-                        self.glucoseWebVC?.pushReading(latest)
+                        self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: thresholds)
                     }
                 }
             )
@@ -319,11 +320,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.latestReading = latest
             self.graphData = readings.reversed().map { GraphDatum(value: $0.valueMmol, timestamp: $0.timestamp) }
 
-            self.glucoseWebVC?.isAuthenticated = true
-            self.glucoseWebVC?.injectHistory(self.graphData)
-            self.glucoseWebVC?.pushReading(latest)
+            let t = GlucoseThresholdsStore.current
+            let allStats = allWindowStats(from: self.graphData, thresholds: t)
+            self.currentStats = allStats["24h"]
 
-            self.currentStats = glucoseStats(from: self.graphData, thresholds: GlucoseThresholdsStore.current)
+            self.glucoseWebVC?.isAuthenticated = true
+            self.glucoseWebVC?.injectHistory(self.graphData, stats: allStats, thresholds: t)
+            self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: t)
+
             self.updateStatusBarTitle()
         }
     }
@@ -335,7 +339,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             // Refresh history on every open so the chart is up to date
             if !graphData.isEmpty {
-                glucoseWebVC?.injectHistory(graphData)
+                let t = GlucoseThresholdsStore.current
+                glucoseWebVC?.injectHistory(graphData, stats: allWindowStats(from: graphData, thresholds: t), thresholds: t)
             }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
@@ -484,4 +489,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func quit() {
         NSApplication.shared.terminate(self)
     }
+}
+
+// MARK: - Stats helpers
+
+private func allWindowStats(from readings: [GraphDatum], thresholds: GlucoseThresholds) -> [String: GlucoseStats] {
+    let windows: [(key: String, hours: Double, label: String)] = [
+        ("3h",  3,  "3H"),
+        ("6h",  6,  "6H"),
+        ("12h", 12, "12H"),
+        ("24h", 24, "24H"),
+    ]
+    var result: [String: GlucoseStats] = [:]
+    for w in windows {
+        if let stats = glucoseStats(from: readings, hours: w.hours, thresholds: thresholds, rangeLabel: w.label) {
+            result[w.key] = stats
+        }
+    }
+    return result
 }

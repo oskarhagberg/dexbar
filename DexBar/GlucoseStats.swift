@@ -14,7 +14,7 @@ struct GlucoseStats {
 
 /// Returns nil if `readings` is empty.
 /// Only includes readings within the last `hours` hours from now.
-func glucoseStats(from readings: [GraphDatum], hours: Double = 24, thresholds: GlucoseThresholds = .default) -> GlucoseStats? {
+func glucoseStats(from readings: [GraphDatum], hours: Double = 24, thresholds: GlucoseThresholds = .default, rangeLabel: String = "24H") -> GlucoseStats? {
     let cutoff = Date().addingTimeInterval(-hours * 3600)
     let window = readings.filter { $0.timestamp >= cutoff }
     guard !window.isEmpty else { return nil }
@@ -32,6 +32,6 @@ func glucoseStats(from readings: [GraphDatum], hours: Double = 24, thresholds: G
         average: avg,
         periodLow: low,
         readingCount: window.count,
-        rangeLabel: "\(Int(hours))H"
+        rangeLabel: rangeLabel
     )
 }
