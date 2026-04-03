@@ -10,12 +10,12 @@ struct DisclaimerWindowControllerTests {
 
     // Cleanup helper — always remove the key so tests are isolated
     private func cleanUp() {
-        UserDefaults.standard.removeObject(forKey: "hasAcceptedDisclaimer")
+        UserDefaults.standard.removeObject(forKey: DisclaimerWindowController.acceptedKey)
         DisclaimerWindowController._resetForTesting()
     }
 
     @Test func showIfNeeded_whenAlreadyAccepted_callsProceedSynchronously() {
-        UserDefaults.standard.set(true, forKey: "hasAcceptedDisclaimer")
+        UserDefaults.standard.set(true, forKey: DisclaimerWindowController.acceptedKey)
         defer { cleanUp() }
 
         var called = false

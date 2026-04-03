@@ -62,6 +62,7 @@ final class DisclaimerWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Testing support
 
+    #if DEBUG
     /// Resets shared state between unit tests. Do not call from production code.
     static func _resetForTesting() {
         DispatchQueue.main.async {
@@ -69,6 +70,7 @@ final class DisclaimerWindowController: NSWindowController, NSWindowDelegate {
             shared = nil
         }
     }
+    #endif
 
     // MARK: - Actions
 
