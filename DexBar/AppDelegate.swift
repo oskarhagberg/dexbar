@@ -15,6 +15,7 @@ import ServiceManagement
 struct KeychainHelper {
     private static let service = Bundle.main.bundleIdentifier ?? "com.oskarhagberg.DexBar"
     private static let credentialsAccount = "credentials"
+    private static let glookoAccount = "glookoCredentials"
 
     static func saveCredentials(username: String, password: String) {
         guard let data = try? JSONEncoder().encode(["username": username, "password": password]) else { return }
@@ -52,6 +53,46 @@ struct KeychainHelper {
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: credentialsAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    static func saveGlookoCredentials(email: String, password: String) {
+        guard let data = try? JSONEncoder().encode(["email": email, "password": password]) else { return }
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: glookoAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+        var item = query
+        item[kSecValueData] = data
+        SecItemAdd(item as CFDictionary, nil)
+    }
+
+    /// Returns (email, password), or nil if no Glooko credentials are stored.
+    static func loadGlookoCredentials() -> (email: String, password: String)? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: glookoAccount,
+            kSecReturnData: true,
+            kSecMatchLimit: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data,
+              let dict = try? JSONDecoder().decode([String: String].self, from: data),
+              let email = dict["email"],
+              let password = dict["password"] else { return nil }
+        return (email, password)
+    }
+
+    static func deleteGlookoCredentials() {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: glookoAccount
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -113,6 +154,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var username: String = ""
     private var password: String = ""
     private var sessionId: String?
+    private let glooko = GlookoService()
+    private var glookoPumpEvents: [PumpEvent] = []
+    private var glookoTimer: Timer?
 
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -142,6 +186,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             startPolling()
         } else {
             setStatusTitle("🚫")
+        }
+
+        // Load Glooko credentials and authenticate in background if present
+        if let glookoCreds = KeychainHelper.loadGlookoCredentials() {
+            glooko.authenticate(email: glookoCreds.email, password: glookoCreds.password) { [weak self] ok, _ in
+                guard let self, ok else { return }
+                self.fetchGlookoData()
+                DispatchQueue.main.async { self.startGlookoPolling() }
+            }
         }
     }
 
@@ -222,7 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.currentStats = allStats["24h"]
                     self.updateStatusBarTitle()
                     if let latest = self.latestReading {
-                        self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: thresholds)
+                        self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: thresholds, pumpEvents: self.glookoPumpEvents)
                     }
                 }
             )
@@ -326,6 +379,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         markUnauthenticated()
     }
 
+    func startGlookoPolling() {
+        glookoTimer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { _ in
+            self.fetchGlookoData()
+        }
+        glookoTimer?.tolerance = 60
+    }
+
+    func fetchGlookoData() {
+        let now = Date()
+        let start = now.addingTimeInterval(-24 * 3600)
+        glooko.fetchPumpEvents(from: start, to: now) { [weak self] events in
+            guard let self, let events else { return }
+            DispatchQueue.main.async {
+                self.glookoPumpEvents = events
+                guard let latest = self.latestReading else { return }
+                let t = GlucoseThresholdsStore.current
+                let allStats = allWindowStats(from: self.graphData, thresholds: t)
+                self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: t, pumpEvents: events)
+            }
+        }
+    }
+
+    func glookoSignIn(email: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+        KeychainHelper.saveGlookoCredentials(email: email, password: password)
+        glooko.authenticate(email: email, password: password) { [weak self] ok, error in
+            guard let self else { return }
+            if ok {
+                self.fetchGlookoData()
+                DispatchQueue.main.async {
+                    if self.glookoTimer == nil { self.startGlookoPolling() }
+                }
+            }
+            completion(ok, error)
+        }
+    }
+
+    func glookoSignOut() {
+        glookoTimer?.invalidate()
+        glookoTimer = nil
+        glooko.clearSession()
+        KeychainHelper.deleteGlookoCredentials()
+        glookoPumpEvents = []
+        // Push empty events to clear chart dots
+        guard let latest = latestReading else { return }
+        let t = GlucoseThresholdsStore.current
+        let allStats = allWindowStats(from: graphData, thresholds: t)
+        glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: t, pumpEvents: [])
+    }
+
     func updateUI(with readings: [DexcomReading]) {
         guard let latest = readings.first else { return }
         DispatchQueue.main.async {
@@ -338,8 +440,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.currentStats = allStats["24h"]
 
             self.glucoseWebVC?.isAuthenticated = true
-            self.glucoseWebVC?.injectHistory(self.graphData, stats: allStats, thresholds: t)
-            self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: t)
+            self.glucoseWebVC?.injectHistory(self.graphData, stats: allStats, thresholds: t, pumpEvents: self.glookoPumpEvents)
+            self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: t, pumpEvents: self.glookoPumpEvents)
 
             self.updateStatusBarTitle()
         }
@@ -353,7 +455,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Refresh history on every open so the chart is up to date
             if !graphData.isEmpty {
                 let t = GlucoseThresholdsStore.current
-                glucoseWebVC?.injectHistory(graphData, stats: allWindowStats(from: graphData, thresholds: t), thresholds: t)
+                glucoseWebVC?.injectHistory(graphData, stats: allWindowStats(from: graphData, thresholds: t), thresholds: t, pumpEvents: glookoPumpEvents)
             }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }

@@ -113,11 +113,14 @@ class GlucoseWebViewController: NSViewController {
     /// Call this with the historical readings buffer before or after page load.
     /// Installs a WKUserScript so the chart boots with data, and also
     /// updates window.__INITIAL_DATA__ directly if the page is already loaded.
-    func injectHistory(_ readings: [GraphDatum], stats: [String: GlucoseStats], thresholds: GlucoseThresholds) {
+    func injectHistory(_ readings: [GraphDatum], stats: [String: GlucoseStats], thresholds: GlucoseThresholds, pumpEvents: [PumpEvent]) {
         let points = readings.map { r -> [String: Double] in
             ["time": r.timestamp.timeIntervalSince1970 * 1000, "value": r.value]
         }
         let thresholdsDict: [String: Double] = ["low": thresholds.low, "high": thresholds.high]
+        let eventsArray: [[String: Any]] = pumpEvents.map { e in
+            ["timestamp": e.timestamp, "units": e.units, "carbs": e.carbs, "bg": e.bg]
+        }
 
         let statsValue: Any
         if !stats.isEmpty {
@@ -148,7 +151,8 @@ class GlucoseWebViewController: NSViewController {
             "readings": points,
             "thresholds": thresholdsDict,
             "stats": statsValue,
-            "currentReading": currentReadingValue
+            "currentReading": currentReadingValue,
+            "pumpEvents": eventsArray
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
@@ -183,7 +187,7 @@ class GlucoseWebViewController: NSViewController {
 
     /// Call this whenever a new live reading arrives.
     /// Queues the reading if the page hasn't finished loading yet.
-    func pushReading(_ reading: DexcomReading, stats: [String: GlucoseStats], thresholds: GlucoseThresholds) {
+    func pushReading(_ reading: DexcomReading, stats: [String: GlucoseStats], thresholds: GlucoseThresholds, pumpEvents: [PumpEvent]) {
         latestReading = reading
 
         let statsValue: Any
@@ -212,6 +216,11 @@ class GlucoseWebViewController: NSViewController {
             sentThresholds = thresholds
         }
 
+        let eventsArray: [[String: Any]] = pumpEvents.map { e in
+            ["timestamp": e.timestamp, "units": e.units, "carbs": e.carbs, "bg": e.bg]
+        }
+        payload["pumpEvents"] = eventsArray
+
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else {
             dlog("[GlucoseWebVC] pushReading: failed to serialize updateReading payload")
@@ -226,7 +235,7 @@ class GlucoseWebViewController: NSViewController {
             }
         } else {
             pendingPush = { [weak self] in
-                self?.pushReading(reading, stats: stats, thresholds: thresholds)
+                self?.pushReading(reading, stats: stats, thresholds: thresholds, pumpEvents: pumpEvents)
             }
         }
     }
