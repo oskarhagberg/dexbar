@@ -205,8 +205,16 @@ class GlookoService {
         return nil
     }
 
-    /// Parses raw histories JSON data into PumpEvent array.
-    /// Filters: only pumps_normal_boluses, both softDeleted flags false, insulinDelivered > 0.
+    /// Parses raw histories JSON data into a PumpEvent array.
+    ///
+    /// Filter rules applied:
+    ///   - Only "pumps_normal_boluses" type entries
+    ///   - Both outer and item-level softDeleted must be false (nil treated as false)
+    ///   - insulinDelivered must be present in JSON
+    ///   - Excluded only if both insulinDelivered == 0 AND carbsInput == 0 (noise)
+    ///   - Correction boluses (units > 0, carbs == 0) are included
+    ///   - Zero-dose meal logs (units == 0, carbs > 0) are included
+    ///
     /// Results are sorted ascending by timestamp.
     static func parsePumpEvents(from data: Data) -> [PumpEvent] {
         guard let response = try? JSONDecoder().decode(HistoriesResponse.self, from: data) else {
@@ -221,9 +229,9 @@ class GlookoService {
                   item.softDeleted != true,   // nil (field absent from JSON) is treated as not deleted
                   let tsString = item.pumpTimestamp,
                   let date = iso8601.date(from: tsString) ?? iso8601NoFraction.date(from: tsString),
-                  let units = item.insulinDelivered,
-                  units > 0 else { continue }
+                  let units = item.insulinDelivered else { continue }
             let carbs = item.carbsInput ?? 0.0
+            guard units > 0 || carbs > 0 else { continue }
             // bloodGlucoseInput is in mmol/L × 1000 (Glooko's internal representation); divide by 1000 to get mmol/L
             let bg = (item.bloodGlucoseInput ?? 0.0) / 1000.0
             events.append(PumpEvent(

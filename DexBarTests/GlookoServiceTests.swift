@@ -121,22 +121,88 @@ struct GlookoServiceTests {
         #expect(GlookoService.parsePumpEvents(from: json).isEmpty)
     }
 
-    @Test func filtersOutZeroInsulin() {
+    @Test func includesMealBolus() {
         let json = """
         {
-          "histories": [
-            {
-              "type": "pumps_normal_boluses",
-              "softDeleted": false,
-              "item": {
-                "pumpTimestamp": "2026-04-02T10:00:00.000Z",
-                "insulinDelivered": 0.0,
-                "carbsInput": 20.0,
-                "bloodGlucoseInput": 8000.0,
-                "softDeleted": false
-              }
+          "histories": [{
+            "type": "pumps_normal_boluses",
+            "softDeleted": false,
+            "item": {
+              "pumpTimestamp": "2026-04-02T15:45:00.000Z",
+              "insulinDelivered": 12.3,
+              "carbsInput": 80.0,
+              "bloodGlucoseInput": 7600.0,
+              "softDeleted": false
             }
-          ]
+          }]
+        }
+        """.data(using: .utf8)!
+        let events = GlookoService.parsePumpEvents(from: json)
+        #expect(events.count == 1)
+        #expect(events[0].units == 12.3)
+        #expect(events[0].carbs == 80.0)
+        #expect(events[0].bg == 7.6)
+    }
+
+    @Test func includesCorrectionBolus() {
+        let json = """
+        {
+          "histories": [{
+            "type": "pumps_normal_boluses",
+            "softDeleted": false,
+            "item": {
+              "pumpTimestamp": "2026-04-02T19:11:00.000Z",
+              "insulinDelivered": 4.5,
+              "carbsInput": 0.0,
+              "bloodGlucoseInput": 26300.0,
+              "softDeleted": false
+            }
+          }]
+        }
+        """.data(using: .utf8)!
+        let events = GlookoService.parsePumpEvents(from: json)
+        #expect(events.count == 1)
+        #expect(events[0].units == 4.5)
+        #expect(events[0].carbs == 0.0)
+        #expect(events[0].bg == 26.3)
+    }
+
+    @Test func includesZeroDoseMealLog() {
+        let json = """
+        {
+          "histories": [{
+            "type": "pumps_normal_boluses",
+            "softDeleted": false,
+            "item": {
+              "pumpTimestamp": "2026-04-02T10:00:00.000Z",
+              "insulinDelivered": 0.0,
+              "carbsInput": 20.0,
+              "bloodGlucoseInput": 8000.0,
+              "softDeleted": false
+            }
+          }]
+        }
+        """.data(using: .utf8)!
+        let events = GlookoService.parsePumpEvents(from: json)
+        #expect(events.count == 1)
+        #expect(events[0].units == 0.0)
+        #expect(events[0].carbs == 20.0)
+    }
+
+    @Test func excludesZeroInsulinAndZeroCarbs() {
+        let json = """
+        {
+          "histories": [{
+            "type": "pumps_normal_boluses",
+            "softDeleted": false,
+            "item": {
+              "pumpTimestamp": "2026-04-02T10:00:00.000Z",
+              "insulinDelivered": 0.0,
+              "carbsInput": 0.0,
+              "bloodGlucoseInput": 8000.0,
+              "softDeleted": false
+            }
+          }]
         }
         """.data(using: .utf8)!
         #expect(GlookoService.parsePumpEvents(from: json).isEmpty)
