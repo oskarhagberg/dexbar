@@ -150,7 +150,9 @@ class GlucoseWebViewController: NSViewController {
               let json = String(data: data, encoding: .utf8) else { return }
 
         if isLoaded {
-            webView.evaluateJavaScript("window.updateReading(\(json));") { _, error in
+            // Guard with typeof so we get a silent no-op (not a JS exception) when
+            // window.updateReading hasn't been wired up in the HTML yet.
+            webView.evaluateJavaScript("typeof window.updateReading === 'function' && window.updateReading(\(json));") { _, error in
                 if let error { dlog("[GlucoseWebVC] updateReading JS error:", error) }
             }
         } else {
