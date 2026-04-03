@@ -446,9 +446,6 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ textAlign:"center", color:"var(--color-text-ghost)", fontSize:11, letterSpacing:"0.06em" }}>
-          Omnipod 5 · Auto Mode · Readings every 5 min
-        </div>
       </div>
     </div>
   );
