@@ -114,7 +114,8 @@ class GlucoseWebViewController: NSViewController {
         guard let data = try? JSONSerialization.data(withJSONObject: points),
               let json = String(data: data, encoding: .utf8) else { return }
 
-        // Replace any previously installed history script
+        // Replace any previously installed history script.
+        // Note: removes ALL user scripts — this class is the only script installer.
         webView.configuration.userContentController.removeAllUserScripts()
         let script = WKUserScript(
             source: "window.__INITIAL_DATA__ = \(json);",
@@ -124,7 +125,9 @@ class GlucoseWebViewController: NSViewController {
         webView.configuration.userContentController.addUserScript(script)
 
         if isLoaded {
-            webView.evaluateJavaScript("window.__INITIAL_DATA__ = \(json);")
+            webView.evaluateJavaScript("window.__INITIAL_DATA__ = \(json);") { _, error in
+                if let error { dlog("[GlucoseWebVC] injectHistory JS error:", error) }
+            }
         }
     }
 
@@ -140,7 +143,9 @@ class GlucoseWebViewController: NSViewController {
               let json = String(data: data, encoding: .utf8) else { return }
 
         if isLoaded {
-            webView.evaluateJavaScript("window.updateReading(\(json));")
+            webView.evaluateJavaScript("window.updateReading(\(json));") { _, error in
+                if let error { dlog("[GlucoseWebVC] updateReading JS error:", error) }
+            }
         } else {
             pendingReading = reading
         }
