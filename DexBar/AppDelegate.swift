@@ -277,6 +277,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     if let latest = self.latestReading {
                         self.glucoseWebVC?.pushReading(latest, stats: allStats, thresholds: thresholds, pumpEvents: self.glookoPumpEvents)
                     }
+                },
+                onGlookoSignIn: { [weak self] email, password, completion in
+                    self?.glookoSignIn(email: email, password: password, completion: completion)
+                },
+                onGlookoSignOut: { [weak self] in
+                    self?.glookoSignOut()
                 }
             )
             let window = NSWindow(
@@ -465,6 +471,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let onSignIn: (String, String, @escaping (Bool, String?) -> Void) -> Void
         let onSignOut: () -> Void
         let onSaveThresholds: (GlucoseThresholds) -> Void
+        let onGlookoSignIn: (String, String, @escaping (Bool, String?) -> Void) -> Void
+        let onGlookoSignOut: () -> Void
 
         @State private var username: String
         @State private var password: String
@@ -474,18 +482,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         enum SignInStatus { case idle, loading, success, failure(String) }
         @State private var status: SignInStatus = .idle
+        @State private var glookoEmail: String
+        @State private var glookoPassword: String
+        enum GlookoStatus { case idle, loading, success, failure(String) }
+        @State private var glookoStatus: GlookoStatus = .idle
 
         init(
             onSignIn: @escaping (String, String, @escaping (Bool, String?) -> Void) -> Void,
             onSignOut: @escaping () -> Void,
-            onSaveThresholds: @escaping (GlucoseThresholds) -> Void
+            onSaveThresholds: @escaping (GlucoseThresholds) -> Void,
+            onGlookoSignIn: @escaping (String, String, @escaping (Bool, String?) -> Void) -> Void,
+            onGlookoSignOut: @escaping () -> Void
         ) {
             self.onSignIn = onSignIn
             self.onSignOut = onSignOut
             self.onSaveThresholds = onSaveThresholds
+            self.onGlookoSignIn = onGlookoSignIn
+            self.onGlookoSignOut = onGlookoSignOut
             let creds = KeychainHelper.loadCredentials()
             _username = State(initialValue: creds?.username ?? "")
             _password = State(initialValue: creds?.password ?? "")
+            let glooko = KeychainHelper.loadGlookoCredentials()
+            _glookoEmail = State(initialValue: glooko?.email ?? "")
+            _glookoPassword = State(initialValue: glooko?.password ?? "")
         }
 
         var body: some View {
@@ -540,6 +559,58 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
 
+
+                Divider()
+
+                Text("Glooko Account")
+                    .font(.headline)
+
+                Text("Sign in with your Glooko patient account to display insulin bolus events on the chart")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Email", text: $glookoEmail)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("Password", text: $glookoPassword)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                HStack(spacing: 10) {
+                    Button(action: performGlookoSignIn) {
+                        if case .loading = glookoStatus {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Sign In")
+                        }
+                    }
+                    .disabled(glookoEmail.isEmpty || glookoPassword.isEmpty || { if case .loading = glookoStatus { return true }; return false }())
+
+                    Button("Sign Out") {
+                        glookoEmail = ""
+                        glookoPassword = ""
+                        glookoStatus = .idle
+                        onGlookoSignOut()
+                    }
+                    .disabled({ if case .loading = glookoStatus { return true }; return false }())
+
+                    switch glookoStatus {
+                    case .idle:
+                        EmptyView()
+                    case .loading:
+                        EmptyView()
+                    case .success:
+                        Label("Connected", systemImage: "circle.fill")
+                            .foregroundStyle(.green)
+                            .labelStyle(.titleAndIcon)
+                    case .failure(let message):
+                        Label(message, systemImage: "circle.fill")
+                            .foregroundStyle(.red)
+                            .labelStyle(.titleAndIcon)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 Divider()
 
@@ -609,6 +680,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onSignIn(username, password) { success, error in
                 DispatchQueue.main.async {
                     status = success ? .success : .failure(error ?? "Unknown error")
+                }
+            }
+        }
+
+        private func performGlookoSignIn() {
+            glookoStatus = .loading
+            onGlookoSignIn(glookoEmail, glookoPassword) { success, error in
+                DispatchQueue.main.async {
+                    glookoStatus = success ? .success : .failure(error ?? "Unknown error")
                 }
             }
         }
