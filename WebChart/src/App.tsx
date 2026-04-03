@@ -389,7 +389,7 @@ export default function App() {
           <div>
             <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:8 }}>
               <span style={{ fontSize:68, fontWeight:800, letterSpacing:"-3px", fontFamily:"var(--font-mono)", color:curColor, lineHeight:1 }}>{cur.toFixed(1)}</span>
-              <span style={{ fontSize:34, fontWeight:700, color:arrowColor }}>{arrow}</span>
+              <span style={{ fontSize:34, fontWeight:700, color:curColor }}>{arrow}</span>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ color:"var(--color-text-secondary)", fontSize:13, letterSpacing:"0.05em" }}>mmol/L</span>

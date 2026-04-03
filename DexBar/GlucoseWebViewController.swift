@@ -140,7 +140,7 @@ class GlucoseWebViewController: NSViewController {
         if let lr = latestReading {
             currentReadingValue = [
                 "value": lr.valueMmol,
-                "trend": GlucoseFormatter.normalisedTrend(lr.trend),
+                "trend": lr.trend,
                 "timestamp": lr.timestamp.timeIntervalSince1970 * 1000
             ] as [String: Any]
         } else {
@@ -206,7 +206,7 @@ class GlucoseWebViewController: NSViewController {
 
         var payload: [String: Any] = [
             "value":     reading.valueMmol,
-            "trend":     GlucoseFormatter.normalisedTrend(reading.trend),
+            "trend":     reading.trend,
             "timestamp": reading.timestamp.timeIntervalSince1970 * 1000,
             "stats":     statsValue
         ]
