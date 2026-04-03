@@ -21,8 +21,11 @@ enum GlucoseThresholdsStore {
             return t
         }
         set {
-            if let data = try? JSONEncoder().encode(newValue) {
+            do {
+                let data = try JSONEncoder().encode(newValue)
                 UserDefaults.standard.set(data, forKey: key)
+            } catch {
+                dlog("[GlucoseThresholdsStore] Failed to encode thresholds:", error)
             }
         }
     }
