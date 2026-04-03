@@ -73,7 +73,7 @@ const RANGES = [
   { label: "24h", hours: 24 },
 ];
 
-function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 16, events: _events = [] }: {
+function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 16, events = [] }: {
   data: GlucosePoint[];
   thresholds?: GlucoseThresholds;
   yMin?: number; yMax?: number;
@@ -90,6 +90,12 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const [hoveredEvent, setHoveredEvent] = useState<number | null>(null);
+
+  const MAX_CARBS = 125, MAX_BOLUS = 20, R_MIN = 4, R_MAX = 18;
+  const rCarbs = (g: number) => g > 0 ? R_MIN + Math.sqrt(g / MAX_CARBS) * (R_MAX - R_MIN) : 0;
+  const rBolus = (u: number) => u > 0 ? R_MIN + Math.sqrt(u / MAX_BOLUS) * (R_MAX - R_MIN) : 0;
 
   const { low: LOW, high: HIGH } = thresholds;
   const pad = { top: 20, right: 42, bottom: 44, left: 16 };
@@ -125,13 +131,14 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
   const lowY = toY(LOW), highY = toY(HIGH);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (hoveredEvent !== null) return;
     const rect = svgRef.current!.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     let closest = pts[0], minD = Infinity;
     for (const p of pts) { const d = Math.abs(p.x - mx); if (d < minD) { minD = d; closest = p; } }
     if (minD < 40) setHovered({ x: closest.x, y: closest.y, value: closest.value, time: closest.time });
     else setHovered(null);
-  }, [pts]);
+  }, [pts, hoveredEvent]);
 
   return (
     <div style={{ position:"relative", width:"100%", height:"100%" }}>
@@ -150,6 +157,13 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
             <feGaussianBlur stdDeviation="3" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          <filter id="dotGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="2.5" result="b"/>
+            <feMerge>
+              <feMergeNode in="b"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
           <clipPath id="cc"><rect x={pad.left} y={pad.top} width={W} height={H} /></clipPath>
         </defs>
         {ySteps.map(v => <line key={v} x1={pad.left} x2={pad.left+W} y1={toY(v)} y2={toY(v)} stroke="var(--color-grid)" strokeWidth="1" />)}
@@ -159,12 +173,38 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
         <line x1={pad.left} x2={pad.left+W} y1={highY} y2={highY} stroke="var(--color-high)" strokeWidth="1" strokeDasharray="4 4" opacity="0.4" />
         <path d={areaD} fill="url(#ag)" clipPath="url(#cc)" />
         <path d={pathD} fill="none" stroke="url(#lg)" strokeWidth="2.5" strokeLinecap="round" clipPath="url(#cc)" filter="url(#glow)" />
+        {events.length > 0 && events.map((ev, i) => {
+          if (data.length < 2) return null;
+          if (ev.timestamp < data[0].time || ev.timestamp > data[data.length - 1].time) return null;
+          const cx = toX(ev.timestamp);
+          const rc = rCarbs(ev.carbs);
+          const rb = rBolus(ev.units);
+          const maxR = Math.max(rc, rb, 4);
+          // Find nearest glucose reading for Y position
+          let nearest = pts[0];
+          let minDist = Infinity;
+          for (const p of pts) {
+            const d = Math.abs(p.time - ev.timestamp);
+            if (d < minDist) { minDist = d; nearest = p; }
+          }
+          const cy = Math.max(pad.top + maxR + 2, nearest.y);
+          return (
+            <g key={i} className="pump-event-group" filter="url(#dotGlow)"
+               onMouseEnter={() => { setHoveredEvent(i); setHovered(null); }}
+               onMouseLeave={() => setHoveredEvent(null)}>
+              <circle cx={cx} cy={cy} r={maxR + 8} fill="transparent" />
+              {rc > 0 && <path className="pump-event-carbs" d={`M ${cx} ${cy - rc} A ${rc} ${rc} 0 0 0 ${cx} ${cy + rc} Z`} />}
+              <path className="pump-event-bolus" d={`M ${cx} ${cy - rb} A ${rb} ${rb} 0 0 1 ${cx} ${cy + rb} Z`} />
+              <circle className="pump-event-pip" cx={cx} cy={cy} r={2.5} />
+            </g>
+          );
+        })}
         {ySteps.map(v => <text key={v} x={pad.left+W+8} y={toY(v)+4} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)">{v}</text>)}
         {timeLabels.map(tl => <text key={tl.x} x={tl.x} y={pad.top+H+24} fill="var(--color-text-axis)" fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle">{tl.label}</text>)}
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="8" fill={getColor(cur)} clipPath="url(#cc)" opacity="0.3" />
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="4" fill={getColor(cur)} clipPath="url(#cc)" filter="url(#glow)" />
         <circle cx={pts[pts.length-1].x} cy={pts[pts.length-1].y} r="2" fill="white" clipPath="url(#cc)" />
-        {hovered && (<>
+        {hovered && hoveredEvent === null && (<>
           <line x1={hovered.x} x2={hovered.x} y1={pad.top} y2={pad.top+H} stroke="var(--color-border-strong)" strokeWidth="1" />
           <circle cx={hovered.x} cy={hovered.y} r="5" fill={getColor(hovered.value)} opacity="0.9" />
           <circle cx={hovered.x} cy={hovered.y} r="2.5" fill="white" />
