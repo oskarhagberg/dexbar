@@ -7,7 +7,6 @@
 
 import Cocoa
 import SwiftUI
-import Charts
 import Security
 import ServiceManagement
 
@@ -96,7 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var timer: Timer?
     var popover: NSPopover?
-    var popoverHostingController: NSHostingController<PopoverContentView>?
+    var glucoseWebVC: GlucoseWebViewController?
+    /// Feature flag: when true, appends "  74%" TIR suffix to the status bar title.
+    var showTimeInRange: Bool = false
+    var currentStats: GlucoseStats?
+    var latestReading: DexcomReading?
     var graphData: [GraphDatum] = []
     var preferencesWindow: NSWindow?
     var isAuthenticated = false
@@ -113,6 +116,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.action = #selector(handleStatusItemClick(_:))
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
+        let vc = GlucoseWebViewController()
+        glucoseWebVC = vc
+
+        let p = NSPopover()
+        p.behavior = .transient
+        p.contentViewController = vc
+        p.contentSize = CGSize(width: 640, height: 520)
+        p.appearance = NSAppearance(named: .darkAqua)
+        popover = p
+
         if KeychainHelper.load(for: "username") != nil {
             setStatusTitle("…")
             startPolling()
@@ -128,6 +141,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 self.statusItem.button?.attributedTitle = NSAttributedString(string: title)
             }
+        }
+    }
+
+    func updateStatusBarTitle() {
+        guard let reading = latestReading else { return }
+        let label = GlucoseFormatter.statusLabel(valueMmol: reading.valueMmol, trend: reading.trend)
+        let title: String
+        if showTimeInRange, let tir = currentStats?.timeInRangePercent {
+            title = "\(label)  \(tir)%"
+        } else {
+            title = label
+        }
+        if GlucoseFormatter.isLow(reading.valueMmol) {
+            setStatusTitle(title, color: .red)
+        } else {
+            setStatusTitle(title)
         }
     }
 
@@ -258,7 +287,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func markUnauthenticated() {
         isAuthenticated = false
         setStatusTitle("🚫")
-        updatePopoverContent()
+        glucoseWebVC?.isAuthenticated = false
     }
 
     func signOut() {
@@ -275,193 +304,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let latest = readings.first else { return }
 
         isAuthenticated = true
+        latestReading = latest
         graphData = readings.reversed().map { GraphDatum(value: $0.valueMmol, timestamp: $0.timestamp) }
 
-        let label = GlucoseFormatter.statusLabel(valueMmol: latest.valueMmol, trend: latest.trend)
-        if GlucoseFormatter.isLow(latest.valueMmol) {
-            setStatusTitle(label, color: .red)
-        } else {
-            setStatusTitle(label)
-        }
-        updatePopoverContent()
-    }
+        glucoseWebVC?.isAuthenticated = true
+        glucoseWebVC?.injectHistory(graphData)
+        glucoseWebVC?.pushReading(latest)
 
-    func updatePopoverContent() {
-        DispatchQueue.main.async {
-            self.popoverHostingController?.rootView = self.makePopoverView()
-        }
-    }
-
-    func makePopoverView() -> PopoverContentView {
-        PopoverContentView(
-            isAuthenticated: isAuthenticated,
-            data: graphData,
-            onOpenPreferences: { [weak self] in self?.openPreferences() }
-        )
+        currentStats = glucoseStats(from: graphData)
+        updateStatusBarTitle()
     }
 
     @objc func togglePopover(_ sender: Any?) {
-        if popover == nil {
-            let hc = NSHostingController(rootView: makePopoverView())
-            popoverHostingController = hc
-            let p = NSPopover()
-            p.behavior = .transient
-            p.contentViewController = hc
-            popover = p
+        guard let button = statusItem.button, let popover = popover else { return }
+        if popover.isShown {
+            popover.performClose(sender)
         } else {
-            popoverHostingController?.rootView = makePopoverView()
-        }
-
-        if let button = statusItem.button, let popover = popover {
-            if popover.isShown {
-                popover.performClose(sender)
-            } else {
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            // Refresh history on every open so the chart is up to date
+            if !graphData.isEmpty {
+                glucoseWebVC?.injectHistory(graphData)
             }
-        }
-    }
-
-    struct PopoverContentView: View {
-        let isAuthenticated: Bool
-        let data: [GraphDatum]
-        let onOpenPreferences: () -> Void
-
-        var body: some View {
-            ZStack(alignment: .topTrailing) {
-                if isAuthenticated {
-                    GlucoseChartView(data: data)
-                } else {
-                    VStack(spacing: 16) {
-                        Text("Sign in with your (or dependent's) credentials")
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                        Button("Open Preferences") {
-                            onOpenPreferences()
-                        }
-                    }
-                    .padding(32)
-                    .frame(width: 300, height: 160)
-                }
-
-                Button(action: onOpenPreferences) {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(10)
-            }
-        }
-    }
-
-    struct GlucoseChartView: View {
-        let data: [GraphDatum]
-        @State private var selectedX: Date?
-        @State private var hours: Double = 6
-
-        var visibleData: [GraphDatum] {
-            let cutoff = Date().addingTimeInterval(-hours * 3600)
-            return data.filter { $0.timestamp >= cutoff }
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 0) {
-                    ForEach([3.0, 6.0, 12.0, 24.0], id: \.self) { h in
-                        Button("\(Int(h))h") { hours = h }
-                            .buttonStyle(.plain)
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 12)
-                            .background(hours == h ? Color.primary.opacity(0.1) : Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .fontWeight(hours == h ? .semibold : .regular)
-                    }
-                }
-                .padding(.horizontal, 4)
-
-                Chart {
-                    // Draw background range FIRST so it stays behind
-                    RectangleMark(
-                        xStart: .value("Time", domainX.lowerBound),
-                        xEnd: .value("Time", domainX.upperBound),
-                        yStart: .value("Range", 4),
-                        yEnd: .value("Range", 8)
-                    )
-                    .foregroundStyle(Color.green.opacity(0.2))
-
-                    // Then plot the data as a connected line with points
-                    ForEach(visibleData) { point in
-                        LineMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Glucose", point.value)
-                        )
-                        .foregroundStyle(.black)
-
-                        PointMark(
-                            x: .value("Time", point.timestamp),
-                            y: .value("Glucose", point.value)
-                        )
-                        .symbol(Circle().strokeBorder(lineWidth: 1))
-                        .foregroundStyle(.black)
-                        .symbolSize(20)
-                    }
-
-                    // Threshold rules
-                    RuleMark(y: .value("Threshold", GlucoseFormatter.lowThreshold))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-                        .foregroundStyle(.red)
-
-                    RuleMark(y: .value("Threshold", 12))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-                        .foregroundStyle(.red)
-
-                    // Vertical cursor line — follows the drag position
-                    if let sel = selectedX {
-                        RuleMark(x: .value("Cursor", sel))
-                            .lineStyle(StrokeStyle(lineWidth: 1))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                }
-                .chartXAxisLabel("Time")
-                .chartYAxisLabel("Glucose (mmol/L)")
-                .chartXScale(domain: domainX)
-                .frame(width: 420, height: 260)
-                .chartXSelection(value: $selectedX)
-                .chartOverlay { proxy in
-                    Rectangle().fill(.clear).contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    if let x: Date = proxy.value(atX: value.location.x) {
-                                        selectedX = x
-                                    }
-                                }
-                                .onEnded { _ in
-                                    selectedX = nil
-                                }
-                        )
-                }
-                .overlay(alignment: .topLeading) {
-                    if let sel = selectedX, let nearest = nearestPoint(to: sel) {
-                        HoverReadout(point: nearest)
-                            .padding(8)
-                            .background(.regularMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .padding()
-                    }
-                }
-            }
-            .padding()
-            .frame(minWidth: 440, minHeight: 300)
-        }
-
-        private var domainX: ClosedRange<Date> {
-            let now = Date()
-            return now.addingTimeInterval(-hours * 3600)...now
-        }
-
-        private func nearestPoint(to date: Date) -> GraphDatum? {
-            guard !visibleData.isEmpty else { return nil }
-            return visibleData.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
     }
 
@@ -547,18 +410,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     status = success ? .success : .failure(error ?? "Unknown error")
                 }
-            }
-        }
-    }
-
-    private struct HoverReadout: View {
-        let point: GraphDatum
-        var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(point.value, specifier: "%.1f") mmol/L").bold()
-                Text(point.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
