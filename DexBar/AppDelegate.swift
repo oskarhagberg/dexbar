@@ -348,8 +348,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         @State private var username: String = KeychainHelper.load(for: "username") ?? ""
         @State private var password: String = KeychainHelper.load(for: "password") ?? ""
-        @State private var lowText: String = String(GlucoseThresholdsStore.current.low)
-        @State private var highText: String = String(GlucoseThresholdsStore.current.high)
+        @State private var lowText: String = String(format: "%.1f", GlucoseThresholdsStore.current.low)
+        @State private var highText: String = String(format: "%.1f", GlucoseThresholdsStore.current.high)
         @State private var thresholdError: String? = nil
 
         enum SignInStatus { case idle, loading, success, failure(String) }
