@@ -11,6 +11,7 @@ class GlucoseWebViewController: NSViewController {
     private var webView: WKWebView!
     private var overlayView: NSView!
     private var isLoaded = false
+    private var hasStartedLoading = false
     private var pendingReading: DexcomReading?
 
     /// Set this to show or hide the "sign in" overlay over the chart.
@@ -33,7 +34,8 @@ class GlucoseWebViewController: NSViewController {
         super.viewDidLoad()
         setupWebView()
         setupOverlay()
-        loadHTML()
+        // loadHTML() is called lazily from injectHistory() so that window.__INITIAL_DATA__
+        // is set via WKUserScript before the page first parses.
     }
 
     // MARK: - Setup
@@ -124,11 +126,16 @@ class GlucoseWebViewController: NSViewController {
         )
         webView.configuration.userContentController.addUserScript(script)
 
-        if isLoaded {
+        if !hasStartedLoading {
+            // First call — load the page now that __INITIAL_DATA__ is in the user script
+            hasStartedLoading = true
+            loadHTML()
+        } else if isLoaded {
             webView.evaluateJavaScript("window.__INITIAL_DATA__ = \(json);") { _, error in
                 if let error { dlog("[GlucoseWebVC] injectHistory JS error:", error) }
             }
         }
+        // If currently loading (hasStartedLoading && !isLoaded), the WKUserScript covers it
     }
 
     /// Call this whenever a new live reading arrives.
