@@ -386,7 +386,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startGlookoPolling() {
-        glookoTimer = Timer.scheduledTimer(withTimeInterval: 30 * 60, repeats: true) { _ in
+        glookoTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { _ in
             self.fetchGlookoData()
         }
         glookoTimer?.tolerance = 60
