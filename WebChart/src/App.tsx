@@ -218,10 +218,10 @@ function GlucoseChart({ data, thresholds = DEFAULT_THRESHOLDS, yMin = 2, yMax = 
           // Build rows: omit BG row if bg === 0, omit carbs row if carbs === 0
           type TooltipRow = { value: string; unit: string; color: string };
           const rows: TooltipRow[] = [];
-          if (ev.bg !== 0) rows.push({
-            value: ev.bg.toFixed(1),
+          rows.push({
+            value: nearest.value.toFixed(1),
             unit: "mmol/L",
-            color: ev.bg < LOW ? "#f87171" : ev.bg > HIGH ? "#fb923c" : "#34d399"
+            color: nearest.value < LOW ? "#f87171" : nearest.value > HIGH ? "#fb923c" : "#34d399"
           });
           if (ev.carbs !== 0) rows.push({ value: `${ev.carbs}g`, unit: "carbs", color: "rgba(255,255,255,0.65)" });
           rows.push({ value: `${ev.units}U`, unit: "bolus", color: "rgba(200,220,255,0.65)" });
